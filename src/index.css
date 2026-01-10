@@ -1,0 +1,286 @@
+@import "tailwindcss";
+
+/* ===== Cyberpunk Minimalist Theme ===== */
+@theme {
+  /* Colors */
+  --color-background: #09090b;
+  --color-foreground: #fafafa;
+  
+  --color-card: #18181b;
+  --color-card-foreground: #fafafa;
+  
+  --color-popover: #18181b;
+  --color-popover-foreground: #fafafa;
+  
+  --color-primary: #a855f7;
+  --color-primary-hover: #9333ea;
+  --color-primary-foreground: #fafafa;
+  
+  --color-secondary: #27272a;
+  --color-secondary-foreground: #fafafa;
+  
+  --color-muted: #27272a;
+  --color-muted-foreground: #a1a1aa;
+  
+  --color-accent: #3b82f6;
+  --color-accent-hover: #2563eb;
+  --color-accent-foreground: #fafafa;
+  
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fafafa;
+  
+  --color-border: #27272a;
+  --color-input: #27272a;
+  --color-ring: #a855f7;
+  
+  /* Status colors */
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  
+  /* Neon glow colors */
+  --color-neon-purple: #a855f7;
+  --color-neon-blue: #3b82f6;
+  --color-neon-cyan: #22d3ee;
+  
+  /* Spacing */
+  --spacing-sidebar: 200px;
+  
+  /* Border radius */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  
+  /* Font families */
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+  
+  /* Animations */
+  --animate-glow: glow 2s ease-in-out infinite alternate;
+  --animate-slide-in: slideIn 0.2s ease-out;
+  --animate-fade-in: fadeIn 0.15s ease-out;
+  --animate-pulse-slow: pulse 3s ease-in-out infinite;
+  
+  @keyframes glow {
+    0% { box-shadow: 0 0 5px rgba(168, 85, 247, 0.3); }
+    100% { box-shadow: 0 0 15px rgba(168, 85, 247, 0.6); }
+  }
+  
+  @keyframes slideIn {
+    0% { transform: translateX(-10px); opacity: 0; }
+    100% { transform: translateX(0); opacity: 1; }
+  }
+  
+  @keyframes fadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+  }
+}
+
+/* ===== CSS Variables for raw CSS usage ===== */
+:root {
+  --background: #09090b;
+  --foreground: #fafafa;
+  --card: #18181b;
+  --card-foreground: #fafafa;
+  --popover: #18181b;
+  --popover-foreground: #fafafa;
+  --primary: #a855f7;
+  --primary-foreground: #fafafa;
+  --secondary: #27272a;
+  --secondary-foreground: #fafafa;
+  --muted: #27272a;
+  --muted-foreground: #a1a1aa;
+  --accent: #3b82f6;
+  --accent-foreground: #fafafa;
+  --destructive: #ef4444;
+  --destructive-foreground: #fafafa;
+  --border: #27272a;
+  --input: #27272a;
+  --ring: #a855f7;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
+}
+
+/* ===== Base Styles ===== */
+* {
+  border-color: #27272a;
+}
+
+html {
+  background-color: #09090b;
+  font-size: 14px; /* Base font size for desktop app */
+}
+
+body {
+  background-color: #09090b;
+  color: #fafafa;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+  font-size: 0.875rem; /* 12.25px - slightly smaller for desktop app */
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: #09090b;
+}
+
+/* ===== Custom Scrollbar ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #27272a;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* ===== Provider Card Styles ===== */
+.provider-card {
+  transition: all 0.2s ease;
+  background: linear-gradient(180deg, #18181b 0%, rgba(24, 24, 27, 0.8) 100%);
+}
+
+.provider-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 10px 40px -10px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(168, 85, 247, 0.1);
+}
+
+.provider-card-default {
+  box-shadow: 0 0 0 1px rgba(168, 85, 247, 0.3);
+}
+
+/* ===== Routing Rule Drag Styles ===== */
+.routing-rule-dragging {
+  opacity: 0.9;
+  box-shadow:
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    0 0 0 2px #a855f7;
+}
+
+/* ===== Status Indicator ===== */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+}
+
+.status-dot-connected {
+  background-color: #22c55e;
+  animation: pulse 3s ease-in-out infinite;
+}
+
+.status-dot-disconnected {
+  background-color: #ef4444;
+}
+
+.status-dot-error {
+  background-color: #f59e0b;
+}
+
+/* ===== Utility Classes ===== */
+.font-mono {
+  font-family: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+}
+
+.neon-glow {
+  box-shadow: 0 0 10px #a855f7, 
+              0 0 20px #a855f7, 
+              0 0 30px #a855f7;
+}
+
+.neon-text {
+  text-shadow: 0 0 10px #a855f7;
+}
+
+/* ===== Card hover effects ===== */
+.card-interactive {
+  transition: all 0.2s ease;
+}
+
+.card-interactive:hover {
+  background: linear-gradient(180deg, rgba(39, 39, 42, 0.8) 0%, #18181b 100%);
+}
+
+/* ===== Progress bar custom styles ===== */
+[data-slot="progress-indicator"] {
+  background: linear-gradient(90deg, #3b82f6 0%, #22d3ee 100%);
+}
+
+/* ===== Terminal styles ===== */
+.terminal-line {
+  line-height: 1.8;
+}
+
+/* ===== Selection highlight ===== */
+::selection {
+  background-color: rgba(168, 85, 247, 0.3);
+}
+
+/* ===== Focus visible ===== */
+:focus-visible {
+  outline: 2px solid #a855f7;
+  outline-offset: 2px;
+}
+
+/* ===== Animate in/out for dropdowns ===== */
+@keyframes animate-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes animate-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}
+
+.animate-in {
+  animation: animate-in 0.15s ease-out;
+}
+
+.animate-out {
+  animation: animate-out 0.1s ease-in;
+}
+
+/* ===== Backdrop blur for status bar ===== */
+.backdrop-blur-sm {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* ===== Pulse animation ===== */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

@@ -1,50 +1,56 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "@/components/ui/toaster";
+import { Sidebar } from "@/components/layout/sidebar";
+import { useProxyStatus } from "@/hooks/use-tauri";
+import {
+  DashboardPage,
+  ProvidersPage,
+  RouterPage,
+  AgentsPage,
+  SettingsPage,
+} from "@/pages";
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 1,
+    },
+  },
+});
+
+// Component that initializes global polling hooks
+function AppInitializer() {
+  // Start polling proxy status on app load
+  useProxyStatus();
+  return null;
+}
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
-
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
-
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
-
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <BrowserRouter>
+          <AppInitializer />
+          <div className="flex min-h-screen bg-background">
+            <Sidebar />
+            <Routes>
+              <Route path="/" element={<DashboardPage />} />
+              <Route path="/providers" element={<ProvidersPage />} />
+              <Route path="/router" element={<RouterPage />} />
+              <Route path="/agents" element={<AgentsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              {/* Legacy route redirects */}
+              <Route path="/general" element={<Navigate to="/settings" replace />} />
+              <Route path="/network" element={<Navigate to="/settings" replace />} />
+            </Routes>
+          </div>
+          <Toaster />
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
 
