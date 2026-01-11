@@ -221,14 +221,13 @@ export function SettingsPage() {
           className="flex items-center gap-2 pt-4 border-t border-border/40"
         >
           <Button
-            variant="ghost"
-            size="sm"
+            variant="outline"
             onClick={handleCancel}
             disabled={isSaving || !hasChanges}
           >
             Cancel
           </Button>
-          <Button size="sm" onClick={handleSave} disabled={isSaving}>
+          <Button onClick={handleSave} disabled={isSaving}>
             {isSaving ? (
               <>
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

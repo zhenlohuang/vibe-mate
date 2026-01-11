@@ -6,6 +6,7 @@ import {
   NewRuleItem,
   DefaultProvider,
 } from "@/components/router";
+import { Button } from "@/components/ui/button";
 import { useRoutingRules } from "@/hooks/use-routing-rules";
 import { useProviders } from "@/hooks/use-providers";
 import { useToast } from "@/hooks/use-toast";
@@ -297,15 +298,13 @@ export function RouterPage() {
             <div>
               <h3 className="text-sm font-semibold">OpenAI Compatible API</h3>
             </div>
-            <button
+            <Button
               onClick={() => handleStartAddRule("openai", "model")}
-              className="flex items-center gap-2 rounded-lg border border-dashed border-border hover:border-primary/50 bg-card/50 hover:bg-card px-3 py-2 transition-all group"
+              className="h-8 gap-2 border border-primary px-3"
             >
-              <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                Routing Rule
-              </span>
-            </button>
+              <Plus className="h-4 w-4" />
+              Routing Rule
+            </Button>
           </div>
           <div className="mt-4 space-y-3">
             {openaiPathRule && (
@@ -343,15 +342,13 @@ export function RouterPage() {
             <div>
               <h3 className="text-sm font-semibold">Anthropic Compatible API</h3>
             </div>
-            <button
+            <Button
               onClick={() => handleStartAddRule("anthropic", "model")}
-              className="flex items-center gap-2 rounded-lg border border-dashed border-border hover:border-primary/50 bg-card/50 hover:bg-card px-3 py-2 transition-all group"
+              className="h-8 gap-2 border border-primary px-3"
             >
-              <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                  Routing Rule
-              </span>
-            </button>
+              <Plus className="h-4 w-4" />
+              Routing Rule
+            </Button>
           </div>
           <div className="mt-4 space-y-3">
             {anthropicPathRule && (
@@ -389,15 +386,13 @@ export function RouterPage() {
             <div>
               <h3 className="text-sm font-semibold">Generic API</h3>
             </div>
-            <button
+            <Button
               onClick={() => handleStartAddRule("generic", "path")}
-              className="flex items-center gap-2 rounded-lg border border-dashed border-border hover:border-primary/50 bg-card/50 hover:bg-card px-3 py-2 transition-all group"
+              className="h-8 gap-2 border border-primary px-3"
             >
-              <Plus className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-              <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
-                Routing Rule
-              </span>
-            </button>
+              <Plus className="h-4 w-4" />
+              Routing Rule
+            </Button>
           </div>
           <div className="mt-4 space-y-3">
             {genericPathRules.length > 0 && (
