@@ -22,8 +22,7 @@ use crate::storage::ConfigStore;
 
 /// Create HTTP client with proxy support based on config
 fn create_http_client_with_proxy(config: &VibeMateConfig) -> Client {
-    let mut builder = Client::builder()
-        .timeout(std::time::Duration::from_secs(300)); // 5 minutes timeout
+    let mut builder = Client::builder().timeout(std::time::Duration::from_secs(300));
 
     match config.app.proxy_mode {
         ProxyMode::Custom => {
@@ -190,6 +189,18 @@ struct AppState {
     http_client_no_proxy: Client,
 }
 
+fn should_skip_request_header(name: &header::HeaderName) -> bool {
+    matches!(
+        name,
+        &header::HOST
+            | &header::AUTHORIZATION
+            | &header::CONTENT_LENGTH
+            | &header::TRANSFER_ENCODING
+            | &header::CONNECTION
+            | &header::PROXY_AUTHORIZATION
+    )
+}
+
 /// Health check endpoint
 async fn health_check() -> Response<Body> {
     Response::builder()
@@ -284,7 +295,7 @@ async fn generic_proxy_handler(
 
     // Copy headers, but replace Authorization and Host
     for (key, value) in parts.headers.iter() {
-        if key == header::HOST || key == header::AUTHORIZATION {
+        if should_skip_request_header(key) {
             continue;
         }
         if let Ok(v) = value.to_str() {
@@ -418,7 +429,7 @@ async fn openai_proxy_handler(
 
     // Copy headers, but replace Authorization and Host
     for (key, value) in parts.headers.iter() {
-        if key == header::HOST || key == header::AUTHORIZATION {
+        if should_skip_request_header(key) {
             continue;
         }
         if let Ok(v) = value.to_str() {
@@ -547,7 +558,7 @@ async fn anthropic_proxy_handler(
 
     // Copy headers, but replace Authorization and Host
     for (key, value) in parts.headers.iter() {
-        if key == header::HOST || key == header::AUTHORIZATION {
+        if should_skip_request_header(key) {
             continue;
         }
         if let Ok(v) = value.to_str() {
