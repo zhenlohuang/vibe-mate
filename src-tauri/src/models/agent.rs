@@ -3,17 +3,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AgentType {
     ClaudeCode,
+    Codex,
     GeminiCLI,
 }
 
 impl AgentType {
     pub fn all() -> Vec<AgentType> {
-        vec![AgentType::ClaudeCode, AgentType::GeminiCLI]
+        vec![AgentType::ClaudeCode, AgentType::Codex, AgentType::GeminiCLI]
     }
 
     pub fn display_name(&self) -> &'static str {
         match self {
             AgentType::ClaudeCode => "Claude Code",
+            AgentType::Codex => "Codex",
             AgentType::GeminiCLI => "Gemini CLI",
         }
     }
@@ -21,6 +23,7 @@ impl AgentType {
     pub fn detection_command(&self) -> &'static str {
         match self {
             AgentType::ClaudeCode => "claude",
+            AgentType::Codex => "codex",
             AgentType::GeminiCLI => "gemini",
         }
     }

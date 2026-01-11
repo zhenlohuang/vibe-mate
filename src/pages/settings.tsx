@@ -116,7 +116,9 @@ export function SettingsPage() {
               id="port"
               type="text"
               value={formData.proxyServerPort}
-              onChange={(e) => handleFieldChange("proxyServerPort", e.target.value)}
+              onChange={(e) =>
+                handleFieldChange("proxyServerPort", e.target.value)
+              }
               placeholder="12345"
               className="h-8 w-32 font-mono text-sm"
             />
@@ -138,7 +140,10 @@ export function SettingsPage() {
           </div>
 
           <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3 pl-8">
-            <Label htmlFor="proxyMode" className="text-xs text-muted-foreground">
+            <Label
+              htmlFor="proxyMode"
+              className="text-xs text-muted-foreground"
+            >
               Proxy Mode
             </Label>
             <Select
@@ -159,12 +164,17 @@ export function SettingsPage() {
 
             {formData.proxyMode === "Custom" && (
               <>
-                <Label htmlFor="proxyType" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="proxyType"
+                  className="text-xs text-muted-foreground"
+                >
                   Proxy Type
                 </Label>
                 <Select
                   value={formData.proxyType}
-                  onValueChange={(value) => handleFieldChange("proxyType", value)}
+                  onValueChange={(value) =>
+                    handleFieldChange("proxyType", value)
+                  }
                 >
                   <SelectTrigger id="proxyType" className="h-8 w-32 text-sm">
                     <SelectValue placeholder="Type" />
@@ -178,25 +188,35 @@ export function SettingsPage() {
                   </SelectContent>
                 </Select>
 
-                <Label htmlFor="proxyHost" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="proxyHost"
+                  className="text-xs text-muted-foreground"
+                >
                   Host
                 </Label>
                 <Input
                   id="proxyHost"
                   value={formData.proxyHost}
-                  onChange={(e) => handleFieldChange("proxyHost", e.target.value)}
+                  onChange={(e) =>
+                    handleFieldChange("proxyHost", e.target.value)
+                  }
                   placeholder="127.0.0.1"
                   className="h-8 w-48 font-mono text-sm"
                 />
 
-                <Label htmlFor="proxyPort" className="text-xs text-muted-foreground">
+                <Label
+                  htmlFor="proxyPort"
+                  className="text-xs text-muted-foreground"
+                >
                   Port
                 </Label>
                 <Input
                   id="proxyPort"
                   type="text"
                   value={formData.proxyPort}
-                  onChange={(e) => handleFieldChange("proxyPort", e.target.value)}
+                  onChange={(e) =>
+                    handleFieldChange("proxyPort", e.target.value)
+                  }
                   placeholder="7890"
                   className="h-8 w-24 font-mono text-sm"
                 />
@@ -220,11 +240,7 @@ export function SettingsPage() {
           >
             Cancel
           </Button>
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={isSaving}
-          >
+          <Button size="sm" onClick={handleSave} disabled={isSaving}>
             {isSaving ? (
               <>
                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -232,8 +248,8 @@ export function SettingsPage() {
               </>
             ) : (
               <>
-                <Save className="mr-1.5 h-3.5 w-3.5" />
-                Save Changes
+                <Save className="h-3.5 w-3.5" />
+                Save
               </>
             )}
           </Button>

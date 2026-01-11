@@ -1,3 +1,5 @@
+import type { AgentType } from "./agent";
+
 export type ProxyMode = "System" | "Custom" | "None";
 
 export type ProxyType = "SOCKS5" | "HTTP" | "HTTPS";
@@ -25,6 +27,15 @@ export interface UpdateAppConfigInput {
   language?: string;
 }
 
+export interface AgentConfigItem {
+  type: AgentType;
+  configFile?: string | null;
+}
+
+export interface UpdateAgentsConfigInput {
+  agents?: AgentConfigItem[];
+}
+
 export interface LatencyResult {
   success: boolean;
   latencyMs: number | null;
@@ -36,4 +47,3 @@ export interface ProxyStatus {
   port: number;
   requestCount: number;
 }
-

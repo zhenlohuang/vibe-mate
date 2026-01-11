@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{Provider, RoutingRule};
+use super::{AgentType, Provider, RoutingRule};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum ProxyMode {
@@ -31,6 +31,7 @@ impl Default for Theme {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[serde(default)]
 pub struct AppConfig {
     pub proxy_mode: ProxyMode,
     pub proxy_host: Option<String>,
@@ -55,6 +56,14 @@ impl Default for AppConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentConfigItem {
+    pub r#type: AgentType,
+    #[serde(rename = "configFile")]
+    pub config_file: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAppConfigInput {
@@ -66,11 +75,19 @@ pub struct UpdateAppConfigInput {
     pub language: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateAgentsConfigInput {
+    pub agents: Option<Vec<AgentConfigItem>>,
+}
+
 /// Unified configuration file structure (~/.vibemate/settings.json)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 #[serde(rename_all = "camelCase")]
 pub struct VibeMateConfig {
     pub app: AppConfig,
+    pub agents: Vec<AgentConfigItem>,
     pub providers: Vec<Provider>,
     pub routing_rules: Vec<RoutingRule>,
 }
@@ -79,6 +96,7 @@ impl Default for VibeMateConfig {
     fn default() -> Self {
         Self {
             app: AppConfig::default(),
+            agents: Vec::new(),
             providers: Vec::new(),
             routing_rules: Vec::new(),
         }
@@ -110,4 +128,3 @@ pub struct LatencyResult {
     pub latency_ms: Option<u64>,
     pub error: Option<String>,
 }
-

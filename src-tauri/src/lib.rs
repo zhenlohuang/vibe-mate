@@ -86,9 +86,13 @@ pub fn run() {
             commands::check_status,
             commands::open_login,
             commands::get_agent_version,
+            commands::read_agent_config,
+            commands::save_agent_config,
             // Config commands
             commands::get_config,
             commands::update_config,
+            commands::get_agents_config,
+            commands::update_agents_config,
             commands::test_latency,
             // System commands
             commands::proxy_status,

@@ -1,20 +1,37 @@
-import { motion } from "motion/react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import { AgentCard } from "@/components/agents/agent-card";
-import { TerminalOutput } from "@/components/agents/terminal-output";
 import { useAgents } from "@/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 import type { AgentType } from "@/types";
-import { containerVariants, itemVariants } from "@/lib/animations";
+import { AGENT_TYPES, getDefaultConfigPath, getAgentName } from "@/lib/agents";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function AgentsPage() {
-  const { agents, isLoading, checkStatus, openLogin } = useAgents();
+  const { agents, isLoading, addAgent, removeAgent, updateAgentConfigPath } = useAgents();
   const { toast } = useToast();
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
-  const handleRefresh = async (agentType: AgentType) => {
+  const enabledAgentTypes = new Set(agents.map((agent) => agent.agentType));
+  const availableAgents = AGENT_TYPES.filter(
+    (agentType) => !enabledAgentTypes.has(agentType)
+  );
+
+  const handleAddAgent = async (agentType: AgentType) => {
     try {
-      await checkStatus(agentType);
+      await addAgent(agentType);
+      setIsAddMenuOpen(false);
+      toast({
+        title: "Agent Added",
+        description: `${getAgentName(agentType)} has been added to your workspace.`,
+      });
     } catch (error) {
       toast({
         title: "Error",
@@ -24,12 +41,12 @@ export function AgentsPage() {
     }
   };
 
-  const handleLogin = async (agentType: AgentType) => {
+  const handleRemoveAgent = async (agentType: AgentType) => {
     try {
-      await openLogin(agentType);
+      await removeAgent(agentType);
       toast({
-        title: "Login Initiated",
-        description: "Please complete the login process in your browser.",
+        title: "Agent Removed",
+        description: `${getAgentName(agentType)} has been removed from your workspace.`,
       });
     } catch (error) {
       toast({
@@ -59,37 +76,56 @@ export function AgentsPage() {
       description="Monitor active agent instances, manage token consumption, and review live process output."
     >
       <div className="space-y-4">
-        {/* Agent Cards */}
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="space-y-3"
-        >
-          {agents.map((agent) => (
-            <motion.div key={agent.agentType} variants={itemVariants}>
-              <AgentCard
-                agent={agent}
-                onRefresh={() => handleRefresh(agent.agentType)}
-                onLogin={() => handleLogin(agent.agentType)}
-              />
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Empty State */}
-        {agents.length === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border py-10">
-            <h3 className="text-sm font-semibold">No Agents Detected</h3>
-            <p className="mt-1.5 max-w-md text-center text-xs text-muted-foreground">
-              No coding agents were found on your system. Install Claude Code or
-              Gemini CLI to see them here.
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            Add the agents you want Vibe Mate to manage.
           </div>
-        )}
+          <DropdownMenu open={isAddMenuOpen} onOpenChange={setIsAddMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="h-8 gap-2" disabled={availableAgents.length === 0}>
+                <Plus className="h-3.5 w-3.5" />
+                Add Agent
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {availableAgents.length === 0 ? (
+                <DropdownMenuItem disabled>
+                  All supported agents already added
+                </DropdownMenuItem>
+              ) : (
+                availableAgents.map((agentType) => (
+                  <DropdownMenuItem
+                    key={agentType}
+                    onClick={() => handleAddAgent(agentType)}
+                  >
+                    {getAgentName(agentType)}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
-        {/* Terminal Output */}
-        <TerminalOutput />
+        {/* Agent Cards */}
+        <div className="space-y-3">
+          {agents.length === 0 ? (
+            <div className="text-sm text-muted-foreground">
+              No agents added yet. Use "Add Agent" to get started.
+            </div>
+          ) : (
+            agents.map((agent) => (
+              <AgentCard
+                key={agent.agentType}
+                agent={agent}
+                defaultConfigPath={getDefaultConfigPath(agent.agentType)}
+                onUpdateConfigPath={(configPath) =>
+                  updateAgentConfigPath(agent.agentType, configPath)
+                }
+                onRemove={() => handleRemoveAgent(agent.agentType)}
+              />
+            ))
+          )}
+        </div>
       </div>
     </MainContent>
   );

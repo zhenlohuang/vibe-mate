@@ -1,7 +1,7 @@
 use std::sync::Arc;
 use chrono::Utc;
 
-use crate::models::{AppConfig, LatencyResult, UpdateAppConfigInput};
+use crate::models::{AgentConfigItem, AppConfig, LatencyResult, UpdateAgentsConfigInput, UpdateAppConfigInput};
 use crate::storage::ConfigStore;
 
 #[derive(Debug, thiserror::Error)]
@@ -52,6 +52,26 @@ impl ConfigService {
         self.get_config().await
     }
 
+    pub async fn get_agents_config(&self) -> Result<Vec<AgentConfigItem>, ConfigError> {
+        let config = self.store.get_config().await;
+        Ok(config.agents)
+    }
+
+    pub async fn update_agents_config(
+        &self,
+        input: UpdateAgentsConfigInput,
+    ) -> Result<Vec<AgentConfigItem>, ConfigError> {
+        self.store
+            .update(|config| {
+                if let Some(agents) = input.agents.clone() {
+                    config.agents = agents;
+                }
+            })
+            .await?;
+
+        self.get_agents_config().await
+    }
+
     pub async fn test_latency(&self) -> LatencyResult {
         let config = self.store.get_config().await;
         
@@ -81,4 +101,3 @@ impl ConfigService {
         }
     }
 }
-

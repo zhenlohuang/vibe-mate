@@ -1,6 +1,8 @@
 use std::process::Command;
+use std::fs;
+use std::path::PathBuf;
 
-use crate::models::{AgentStatus, AgentType, CodingAgent};
+use crate::models::{AgentType, CodingAgent};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentError {
@@ -29,50 +31,7 @@ impl AgentService {
 
     /// Check a specific agent's status
     async fn check_agent(&self, agent_type: &AgentType) -> CodingAgent {
-        let mut agent = CodingAgent::new(agent_type.clone());
-
-        // Check if the agent is installed
-        if let Some(path) = self.find_executable(agent_type) {
-            agent.executable_path = Some(path);
-            agent.status = AgentStatus::Installed;
-
-            // Try to get version
-            if let Some(version) = self.get_version_sync(agent_type) {
-                agent.version = Some(version);
-            }
-
-            // Check authentication status
-            if self.check_auth_status_sync(agent_type) {
-                agent.status = AgentStatus::Authenticated;
-            } else {
-                agent.status = AgentStatus::NotAuthenticated;
-            }
-        }
-
-        agent
-    }
-
-    /// Find the executable path for an agent
-    fn find_executable(&self, agent_type: &AgentType) -> Option<String> {
-        let command = agent_type.detection_command();
-
-        #[cfg(unix)]
-        let which_cmd = "which";
-        #[cfg(windows)]
-        let which_cmd = "where";
-
-        let output = Command::new(which_cmd).arg(command).output().ok()?;
-
-        if output.status.success() {
-            let path = String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .to_string();
-            if !path.is_empty() {
-                return Some(path);
-            }
-        }
-
-        None
+        CodingAgent::new(agent_type.clone())
     }
 
     /// Get version information for an agent (synchronous)
@@ -105,30 +64,6 @@ impl AgentService {
         self.get_version_sync(agent_type)
     }
 
-    /// Check authentication status (synchronous)
-    fn check_auth_status_sync(&self, agent_type: &AgentType) -> bool {
-        // For now, we'll check for config files as a proxy for authentication
-        // In a real implementation, you'd check for actual auth tokens
-
-        let home_dir = dirs::home_dir();
-        if home_dir.is_none() {
-            return false;
-        }
-        let home = home_dir.unwrap();
-
-        match agent_type {
-            AgentType::ClaudeCode => {
-                // Check for Claude Code config
-                let config_path = home.join(".claude");
-                config_path.exists()
-            }
-            AgentType::GeminiCLI => {
-                // Check for Gemini CLI config
-                let config_path = home.join(".gemini");
-                config_path.exists()
-            }
-        }
-    }
 
     /// Check status of a specific agent
     pub async fn check_status(&self, agent_type: &AgentType) -> Result<CodingAgent, AgentError> {
@@ -186,6 +121,86 @@ impl AgentService {
 
         Ok(())
     }
+
+    /// Get the config file path for an agent
+    fn get_config_path(&self, agent_type: &AgentType) -> Option<PathBuf> {
+        let home_dir = dirs::home_dir()?;
+        
+        let config_path = match agent_type {
+            AgentType::ClaudeCode => home_dir.join(".claude").join("settings.json"),
+            AgentType::Codex => home_dir.join(".codex").join("config.toml"),
+            AgentType::GeminiCLI => home_dir.join(".gemini").join("settings.json"),
+        };
+        
+        Some(config_path)
+    }
+
+    fn resolve_config_path(
+        &self,
+        agent_type: &AgentType,
+        config_path: Option<String>,
+    ) -> Option<PathBuf> {
+        if let Some(path) = config_path {
+            return Some(self.expand_tilde_path(path));
+        }
+        self.get_config_path(agent_type)
+    }
+
+    fn expand_tilde_path(&self, path: String) -> PathBuf {
+        if let Some(stripped) = path.strip_prefix("~/") {
+            if let Some(home_dir) = dirs::home_dir() {
+                return home_dir.join(stripped);
+            }
+        }
+        if path == "~" {
+            if let Some(home_dir) = dirs::home_dir() {
+                return home_dir;
+            }
+        }
+        PathBuf::from(path)
+    }
+
+    /// Read configuration file for an agent
+    pub async fn read_config(
+        &self,
+        agent_type: &AgentType,
+        config_path: Option<String>,
+    ) -> Result<String, AgentError> {
+        let config_path = self
+            .resolve_config_path(agent_type, config_path)
+            .ok_or_else(|| AgentError::CommandError("Could not determine home directory".to_string()))?;
+        
+        if !config_path.exists() {
+            return Err(AgentError::CommandError(format!(
+                "Config file not found: {}",
+                config_path.display()
+            )));
+        }
+        
+        fs::read_to_string(&config_path)
+            .map_err(|e| AgentError::CommandError(format!("Failed to read config file: {}", e)))
+    }
+
+    /// Save configuration file for an agent
+    pub async fn save_config(
+        &self,
+        agent_type: &AgentType,
+        content: String,
+        config_path: Option<String>,
+    ) -> Result<(), AgentError> {
+        let config_path = self
+            .resolve_config_path(agent_type, config_path)
+            .ok_or_else(|| AgentError::CommandError("Could not determine home directory".to_string()))?;
+        
+        // Create parent directory if it doesn't exist
+        if let Some(parent) = config_path.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| AgentError::CommandError(format!("Failed to create config directory: {}", e)))?;
+        }
+        
+        fs::write(&config_path, content)
+            .map_err(|e| AgentError::CommandError(format!("Failed to save config file: {}", e)))
+    }
 }
 
 impl Default for AgentService {
@@ -193,4 +208,3 @@ impl Default for AgentService {
         Self::new()
     }
 }
-
