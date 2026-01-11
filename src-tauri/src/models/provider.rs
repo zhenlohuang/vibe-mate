@@ -39,7 +39,6 @@ pub struct Provider {
     pub api_base_url: String,
     pub api_key: String,
     pub is_default: bool,
-    pub enable_proxy: bool,
     pub status: ProviderStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -60,7 +59,6 @@ impl Provider {
             api_base_url,
             api_key,
             is_default: false,
-            enable_proxy: true,
             status: ProviderStatus::Disconnected,
             created_at: now,
             updated_at: now,
@@ -76,12 +74,6 @@ pub struct CreateProviderInput {
     pub provider_type: ProviderType,
     pub api_base_url: String,
     pub api_key: String,
-    #[serde(default = "default_enable_proxy")]
-    pub enable_proxy: bool,
-}
-
-fn default_enable_proxy() -> bool {
-    true
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -90,7 +82,6 @@ pub struct UpdateProviderInput {
     pub name: Option<String>,
     pub api_base_url: Option<String>,
     pub api_key: Option<String>,
-    pub enable_proxy: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

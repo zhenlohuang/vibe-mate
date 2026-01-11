@@ -17,45 +17,43 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{oneshot, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::models::{ApiGroup, Provider, ProxyMode, RoutingRule, RuleType, VibeMateConfig};
+use crate::models::{ApiGroup, Provider, RoutingRule, RuleType, VibeMateConfig};
 use crate::storage::ConfigStore;
 
 /// Create HTTP client with proxy support based on config
-fn create_http_client_with_proxy(config: &VibeMateConfig) -> Client {
+fn create_http_client(config: &VibeMateConfig) -> Client {
     let mut builder = Client::builder().timeout(std::time::Duration::from_secs(300));
 
-    match config.app.proxy_mode {
-        ProxyMode::Custom => {
-            if let (Some(host), Some(port)) = (&config.app.proxy_host, config.app.proxy_port) {
-                let proxy_url = format!("http://{}:{}", host, port);
-                tracing::info!("Creating proxied client with custom proxy: {}", proxy_url);
-                if let Ok(proxy) = reqwest::Proxy::all(&proxy_url) {
+    if config.app.enable_proxy {
+        if let (Some(host), Some(port)) = (&config.app.proxy_host, config.app.proxy_port) {
+            let proxy_url = format!("http://{}:{}", host, port);
+            tracing::info!("Creating HTTP client with proxy: {}", proxy_url);
+
+            match reqwest::Proxy::all(&proxy_url) {
+                Ok(mut proxy) => {
+                    // Configure no_proxy list
+                    if !config.app.no_proxy.is_empty() {
+                        tracing::debug!("Configuring no_proxy patterns: {:?}", config.app.no_proxy);
+                        let no_proxy = reqwest::NoProxy::from_string(&config.app.no_proxy.join(","));
+                        proxy = proxy.no_proxy(no_proxy);
+                    }
                     builder = builder.proxy(proxy);
                 }
+                Err(e) => {
+                    tracing::error!("Failed to create proxy: {}", e);
+                    builder = builder.no_proxy();
+                }
             }
-        }
-        ProxyMode::System => {
-            // reqwest uses system proxy by default, no need to configure
-            tracing::debug!("Creating proxied client with system proxy");
-        }
-        ProxyMode::None => {
-            // Even when global proxy is None, this client is for providers that want proxy
-            // In this case, we still create a client without proxy
-            tracing::debug!("Creating proxied client (but global proxy is disabled)");
+        } else {
+            tracing::warn!("Proxy enabled but host/port not configured");
             builder = builder.no_proxy();
         }
+    } else {
+        tracing::debug!("Proxy disabled, creating client without proxy");
+        builder = builder.no_proxy();
     }
 
     builder.build().expect("Failed to create HTTP client")
-}
-
-/// Create HTTP client without any proxy
-fn create_http_client_no_proxy() -> Client {
-    Client::builder()
-        .timeout(std::time::Duration::from_secs(300))
-        .no_proxy()
-        .build()
-        .expect("Failed to create HTTP client without proxy")
 }
 
 /// Proxy server state shared across the application
@@ -106,22 +104,26 @@ impl ProxyServer {
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
         *self.shutdown_tx.write().await = Some(shutdown_tx);
 
-        // Create HTTP clients - one with proxy, one without
+        // Create HTTP client based on global proxy settings
         let config = self.store.get_config().await;
-        let http_client_with_proxy = create_http_client_with_proxy(&config);
-        let http_client_no_proxy = create_http_client_no_proxy();
+        let http_client = create_http_client(&config);
 
         // Setup CORS
         let cors = CorsLayer::new()
             .allow_origin(Any)
-            .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE, Method::OPTIONS])
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
             .allow_headers(Any);
 
         // Build the router
         let app_state = AppState {
             server: Arc::clone(self),
-            http_client_with_proxy,
-            http_client_no_proxy,
+            http_client,
         };
 
         let app = Router::new()
@@ -134,9 +136,9 @@ impl ProxyServer {
             .with_state(app_state);
 
         // Bind to the address
-        let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
-            ProxyError::BindFailed(format!("Failed to bind to {}: {}", addr, e))
-        })?;
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|e| ProxyError::BindFailed(format!("Failed to bind to {}: {}", addr, e)))?;
 
         self.port.store(port as u64, Ordering::SeqCst);
         self.is_running.store(true, Ordering::SeqCst);
@@ -183,10 +185,8 @@ impl ProxyServer {
 #[derive(Clone)]
 struct AppState {
     server: Arc<ProxyServer>,
-    /// HTTP client with proxy enabled (respects global proxy settings)
-    http_client_with_proxy: Client,
-    /// HTTP client without any proxy
-    http_client_no_proxy: Client,
+    /// HTTP client with global proxy settings
+    http_client: Client,
 }
 
 fn should_skip_request_header(name: &header::HeaderName) -> bool {
@@ -219,10 +219,18 @@ async fn generic_proxy_handler(
 
     // Get the path from the request and strip the /api prefix
     let full_path = req.uri().path().to_string();
-    let path = full_path.strip_prefix("/api").unwrap_or(&full_path).to_string();
+    let path = full_path
+        .strip_prefix("/api")
+        .unwrap_or(&full_path)
+        .to_string();
     let method = req.method().clone();
 
-    tracing::debug!("Generic proxy request: {} {} (original: {})", method, path, full_path);
+    tracing::debug!(
+        "Generic proxy request: {} {} (original: {})",
+        method,
+        path,
+        full_path
+    );
 
     // Read the request body
     let (parts, body) = req.into_parts();
@@ -259,12 +267,11 @@ async fn generic_proxy_handler(
     };
 
     tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}, proxy: {}",
+        "Routing to provider: {} ({}), model: {} -> {}",
         resolved.provider.name,
         resolved.provider.api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model,
-        resolved.provider.enable_proxy
+        resolved.final_model
     );
 
     // Build the target URL - handle the case where api_base_url already contains /v1
@@ -284,11 +291,7 @@ async fn generic_proxy_handler(
     };
 
     // Select HTTP client based on provider's enable_proxy setting
-    let http_client = if resolved.provider.enable_proxy {
-        &state.http_client_with_proxy
-    } else {
-        &state.http_client_no_proxy
-    };
+    let http_client = &state.http_client;
 
     // Build the outgoing request
     let mut outgoing_req = http_client.request(method.clone(), &target_url);
@@ -353,10 +356,18 @@ async fn openai_proxy_handler(
 
     // Get the path from the request and strip the /api/openai prefix
     let full_path = req.uri().path().to_string();
-    let path = full_path.strip_prefix("/api/openai").unwrap_or(&full_path).to_string();
+    let path = full_path
+        .strip_prefix("/api/openai")
+        .unwrap_or(&full_path)
+        .to_string();
     let method = req.method().clone();
 
-    tracing::debug!("OpenAI proxy request: {} {} (original: {})", method, path, full_path);
+    tracing::debug!(
+        "OpenAI proxy request: {} {} (original: {})",
+        method,
+        path,
+        full_path
+    );
 
     // Read the request body
     let (parts, body) = req.into_parts();
@@ -376,29 +387,24 @@ async fn openai_proxy_handler(
     // Get config and find the matching provider
     let config = state.server.config_store().get_config().await;
 
-    let resolved = match resolve_provider(
-        &config,
-        ApiGroup::OpenAI,
-        &full_path,
-        model_name.as_deref(),
-    ) {
-        Some(r) => r,
-        None => {
-            tracing::error!("No provider found for model: {:?}", model_name);
-            return Ok(error_response(
-                StatusCode::BAD_GATEWAY,
-                "No provider configured. Please add a provider in Vibe Mate settings.",
-            ));
-        }
-    };
+    let resolved =
+        match resolve_provider(&config, ApiGroup::OpenAI, &full_path, model_name.as_deref()) {
+            Some(r) => r,
+            None => {
+                tracing::error!("No provider found for model: {:?}", model_name);
+                return Ok(error_response(
+                    StatusCode::BAD_GATEWAY,
+                    "No provider configured. Please add a provider in Vibe Mate settings.",
+                ));
+            }
+        };
 
     tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}, proxy: {}",
+        "Routing to provider: {} ({}), model: {} -> {}",
         resolved.provider.name,
         resolved.provider.api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model,
-        resolved.provider.enable_proxy
+        resolved.final_model
     );
 
     // Build the target URL - handle the case where api_base_url already contains /v1
@@ -418,11 +424,7 @@ async fn openai_proxy_handler(
     };
 
     // Select HTTP client based on provider's enable_proxy setting
-    let http_client = if resolved.provider.enable_proxy {
-        &state.http_client_with_proxy
-    } else {
-        &state.http_client_no_proxy
-    };
+    let http_client = &state.http_client;
 
     // Build the outgoing request
     let mut outgoing_req = http_client.request(method.clone(), &target_url);
@@ -487,10 +489,18 @@ async fn anthropic_proxy_handler(
 
     // Get the path from the request and strip the /api/anthropic prefix
     let full_path = req.uri().path().to_string();
-    let path = full_path.strip_prefix("/api/anthropic").unwrap_or(&full_path).to_string();
+    let path = full_path
+        .strip_prefix("/api/anthropic")
+        .unwrap_or(&full_path)
+        .to_string();
     let method = req.method().clone();
 
-    tracing::debug!("Anthropic proxy request: {} {} (original: {})", method, path, full_path);
+    tracing::debug!(
+        "Anthropic proxy request: {} {} (original: {})",
+        method,
+        path,
+        full_path
+    );
 
     // Read the request body
     let (parts, body) = req.into_parts();
@@ -527,12 +537,11 @@ async fn anthropic_proxy_handler(
     };
 
     tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}, proxy: {}",
+        "Routing to provider: {} ({}), model: {} -> {}",
         resolved.provider.name,
         resolved.provider.api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model,
-        resolved.provider.enable_proxy
+        resolved.final_model
     );
 
     // Build the target URL for Anthropic
@@ -547,11 +556,7 @@ async fn anthropic_proxy_handler(
     };
 
     // Select HTTP client based on provider's enable_proxy setting
-    let http_client = if resolved.provider.enable_proxy {
-        &state.http_client_with_proxy
-    } else {
-        &state.http_client_no_proxy
-    };
+    let http_client = &state.http_client;
 
     // Build the outgoing request
     let mut outgoing_req = http_client.request(method.clone(), &target_url);
@@ -627,26 +632,25 @@ fn resolve_provider(
     }
 
     // Get enabled routing rules sorted by priority
-    let mut rules: Vec<&RoutingRule> = config
-        .routing_rules
-        .iter()
-        .filter(|r| r.enabled)
-        .collect();
+    let mut rules: Vec<&RoutingRule> = config.routing_rules.iter().filter(|r| r.enabled).collect();
     rules.sort_by_key(|r| r.priority);
 
-    let rule = match_rule_for_group(&rules, &api_group, request_path, model_name)
-        .or_else(|| {
-            if api_group == ApiGroup::Generic {
-                None
-            } else {
-                match_rule_for_group(&rules, &ApiGroup::Generic, request_path, model_name)
-            }
-        });
+    let rule = match_rule_for_group(&rules, &api_group, request_path, model_name).or_else(|| {
+        if api_group == ApiGroup::Generic {
+            None
+        } else {
+            match_rule_for_group(&rules, &ApiGroup::Generic, request_path, model_name)
+        }
+    });
 
     if let Some(rule) = rule {
         if let Some(provider) = config.providers.iter().find(|p| p.id == rule.provider_id) {
             let final_model = model_name
-                .map(|model| rule.model_rewrite.clone().unwrap_or_else(|| model.to_string()))
+                .map(|model| {
+                    rule.model_rewrite
+                        .clone()
+                        .unwrap_or_else(|| model.to_string())
+                })
                 .unwrap_or_default();
             return Some(ResolvedProvider {
                 provider: provider.clone(),
@@ -735,7 +739,10 @@ fn rewrite_model_in_body(body: &Bytes, new_model: &str) -> Vec<u8> {
     // Parse as JSON value, modify model, serialize back
     if let Ok(mut json) = serde_json::from_slice::<serde_json::Value>(body) {
         if let Some(obj) = json.as_object_mut() {
-            obj.insert("model".to_string(), serde_json::Value::String(new_model.to_string()));
+            obj.insert(
+                "model".to_string(),
+                serde_json::Value::String(new_model.to_string()),
+            );
         }
         serde_json::to_vec(&json).unwrap_or_else(|_| body.to_vec())
     } else {
@@ -759,13 +766,18 @@ fn add_auth_header(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest
         }
         _ => {
             // OpenAI, Azure, Custom use Bearer token
-            req.header(header::AUTHORIZATION, format!("Bearer {}", provider.api_key))
+            req.header(
+                header::AUTHORIZATION,
+                format!("Bearer {}", provider.api_key),
+            )
         }
     }
 }
 
 /// Handle regular (non-streaming) response
-async fn handle_regular_response(response: reqwest::Response) -> Result<Response<Body>, StatusCode> {
+async fn handle_regular_response(
+    response: reqwest::Response,
+) -> Result<Response<Body>, StatusCode> {
     let status = response.status();
     let headers = response.headers().clone();
 
@@ -785,16 +797,16 @@ async fn handle_regular_response(response: reqwest::Response) -> Result<Response
         }
     }
 
-    builder
-        .body(Body::from(body_bytes))
-        .map_err(|e| {
-            tracing::error!("Failed to build response: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })
+    builder.body(Body::from(body_bytes)).map_err(|e| {
+        tracing::error!("Failed to build response: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })
 }
 
 /// Handle streaming (SSE) response
-async fn handle_streaming_response(response: reqwest::Response) -> Result<Response<Body>, StatusCode> {
+async fn handle_streaming_response(
+    response: reqwest::Response,
+) -> Result<Response<Body>, StatusCode> {
     let status = response.status();
     let headers = response.headers().clone();
 

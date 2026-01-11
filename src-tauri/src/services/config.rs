@@ -27,8 +27,8 @@ impl ConfigService {
     pub async fn update_config(&self, input: UpdateAppConfigInput) -> Result<AppConfig, ConfigError> {
         self.store
             .update(|config| {
-                if let Some(proxy_mode) = input.proxy_mode.clone() {
-                    config.app.proxy_mode = proxy_mode;
+                if let Some(enable_proxy) = input.enable_proxy {
+                    config.app.enable_proxy = enable_proxy;
                 }
                 if let Some(proxy_host) = input.proxy_host.clone() {
                     config.app.proxy_host = Some(proxy_host);
@@ -36,8 +36,11 @@ impl ConfigService {
                 if let Some(proxy_port) = input.proxy_port {
                     config.app.proxy_port = Some(proxy_port);
                 }
-                if let Some(proxy_server_port) = input.proxy_server_port {
-                    config.app.proxy_server_port = proxy_server_port;
+                if let Some(no_proxy) = input.no_proxy.clone() {
+                    config.app.no_proxy = no_proxy;
+                }
+                if let Some(app_port) = input.app_port {
+                    config.app.app_port = app_port;
                 }
                 if let Some(theme) = input.theme.clone() {
                     config.app.theme = theme;
@@ -80,12 +83,10 @@ impl ConfigService {
         
         // For now, we'll just simulate a latency test
         // In production, you'd actually test network connectivity
-        let success = match config.app.proxy_mode {
-            crate::models::ProxyMode::None => true,
-            crate::models::ProxyMode::System => true, // Assume system proxy works
-            crate::models::ProxyMode::Custom => {
-                config.app.proxy_host.is_some() && config.app.proxy_port.is_some()
-            }
+        let success = if config.app.enable_proxy {
+            config.app.proxy_host.is_some() && config.app.proxy_port.is_some()
+        } else {
+            true
         };
 
         let latency_ms = start.elapsed().as_millis() as u64;

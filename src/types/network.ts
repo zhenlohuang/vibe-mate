@@ -1,28 +1,24 @@
 import type { AgentType } from "./agent";
 
-export type ProxyMode = "System" | "Custom" | "None";
-
-export type ProxyType = "SOCKS5" | "HTTP" | "HTTPS";
-
 export type Theme = "Dark" | "Light" | "System";
 
 export interface AppConfig {
-  proxyMode: ProxyMode;
-  proxyType: ProxyType;
+  enableProxy: boolean;
   proxyHost: string | null;
   proxyPort: number | null;
-  proxyServerPort: number;
+  noProxy: string[];
+  appPort: number;
   theme: Theme;
   language: string;
   updatedAt: string;
 }
 
 export interface UpdateAppConfigInput {
-  proxyMode?: ProxyMode;
-  proxyType?: ProxyType;
+  enableProxy?: boolean;
   proxyHost?: string | null;
   proxyPort?: number | null;
-  proxyServerPort?: number;
+  noProxy?: string[];
+  appPort?: number;
   theme?: Theme;
   language?: string;
 }

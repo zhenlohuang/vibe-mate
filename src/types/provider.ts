@@ -9,7 +9,6 @@ export interface Provider {
   apiBaseUrl: string;
   apiKey: string;
   isDefault: boolean;
-  enableProxy: boolean;
   status: ProviderStatus;
   createdAt: string;
   updatedAt: string;
@@ -20,14 +19,12 @@ export interface CreateProviderInput {
   type: ProviderType;
   apiBaseUrl: string;
   apiKey: string;
-  enableProxy?: boolean;
 }
 
 export interface UpdateProviderInput {
   name?: string;
   apiBaseUrl?: string;
   apiKey?: string;
-  enableProxy?: boolean;
 }
 
 export interface ConnectionStatus {
@@ -35,4 +32,3 @@ export interface ConnectionStatus {
   latencyMs?: number;
   error?: string;
 }
-

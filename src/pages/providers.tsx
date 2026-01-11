@@ -51,7 +51,6 @@ export function ProvidersPage() {
       const updateData: UpdateProviderInput = {
         name: data.name,
         apiBaseUrl: data.apiBaseUrl,
-        enableProxy: data.enableProxy,
       };
       if (data.apiKey) {
         updateData.apiKey = data.apiKey;
@@ -97,18 +96,6 @@ export function ProvidersPage() {
         title: "Default Provider Set",
         description: `${provider?.name} is now the default provider.`,
       });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: String(error),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleToggleProxy = async (id: string, enabled: boolean) => {
-    try {
-      await updateProvider(id, { enableProxy: enabled });
     } catch (error) {
       toast({
         title: "Error",
@@ -182,7 +169,6 @@ export function ProvidersPage() {
                 onSetDefault={handleSetDefault}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-                onToggleProxy={handleToggleProxy}
                 onTestConnection={handleTestConnection}
               />
             </motion.div>

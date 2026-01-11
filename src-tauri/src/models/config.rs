@@ -4,19 +4,6 @@ use serde::{Deserialize, Serialize};
 use super::{AgentType, Provider, RoutingRule};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ProxyMode {
-    System,
-    Custom,
-    None,
-}
-
-impl Default for ProxyMode {
-    fn default() -> Self {
-        Self::System
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Theme {
     Dark,
     Light,
@@ -33,10 +20,11 @@ impl Default for Theme {
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
 pub struct AppConfig {
-    pub proxy_mode: ProxyMode,
+    pub enable_proxy: bool,
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
-    pub proxy_server_port: u16,
+    pub no_proxy: Vec<String>,
+    pub app_port: u16,
     pub theme: Theme,
     pub language: String,
     pub updated_at: DateTime<Utc>,
@@ -45,10 +33,11 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            proxy_mode: ProxyMode::System,
+            enable_proxy: false,
             proxy_host: None,
             proxy_port: None,
-            proxy_server_port: 12345,
+            no_proxy: Vec::new(),
+            app_port: 12345,
             theme: Theme::Dark,
             language: "en".to_string(),
             updated_at: Utc::now(),
@@ -67,10 +56,11 @@ pub struct AgentConfigItem {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAppConfigInput {
-    pub proxy_mode: Option<ProxyMode>,
+    pub enable_proxy: Option<bool>,
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
-    pub proxy_server_port: Option<u16>,
+    pub no_proxy: Option<Vec<String>>,
+    pub app_port: Option<u16>,
     pub theme: Option<Theme>,
     pub language: Option<String>,
 }

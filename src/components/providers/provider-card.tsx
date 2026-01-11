@@ -3,7 +3,6 @@ import { Settings2 } from "lucide-react";
 import type { Provider } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
 import { ProviderLogo } from "./provider-logo";
 
 interface ProviderCardProps {
@@ -11,7 +10,6 @@ interface ProviderCardProps {
   onSetDefault: (id: string) => void;
   onEdit: (provider: Provider) => void;
   onDelete: (id: string) => void;
-  onToggleProxy: (id: string, enabled: boolean) => void;
   onTestConnection: (id: string) => void;
 }
 
@@ -54,7 +52,6 @@ function getStatusConfig(status: Provider["status"], isDefault: boolean) {
 export function ProviderCard({
   provider,
   onEdit,
-  onToggleProxy,
 }: ProviderCardProps) {
   const statusConfig = getStatusConfig(provider.status, provider.isDefault);
 
@@ -111,16 +108,8 @@ export function ProviderCard({
             </div>
           </div>
 
-          {/* Proxy Toggle & Settings */}
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={provider.enableProxy}
-                onCheckedChange={(checked) => onToggleProxy(provider.id, checked)}
-                className="data-[state=checked]:bg-accent scale-90"
-              />
-              <span className="text-xs text-muted-foreground">Proxy</span>
-            </div>
+          {/* Settings Button */}
+          <div className="flex items-center justify-end pt-1">
             <button
               onClick={() => onEdit(provider)}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

@@ -55,7 +55,6 @@ impl ProviderService {
                 let is_first = config.providers.is_empty();
                 let mut new_provider = provider_clone.clone();
                 new_provider.is_default = is_first;
-                new_provider.enable_proxy = input.enable_proxy;
                 config.providers.push(new_provider);
             })
             .await?;
@@ -84,9 +83,6 @@ impl ProviderService {
                     }
                     if let Some(api_key) = input.api_key.clone() {
                         provider.api_key = api_key;
-                    }
-                    if let Some(enable_proxy) = input.enable_proxy {
-                        provider.enable_proxy = enable_proxy;
                     }
                     provider.updated_at = Utc::now();
                 }

@@ -4,7 +4,6 @@ import { PROVIDER_TYPES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -43,7 +42,6 @@ export function ProviderForm({
     type: "OpenAI",
     apiBaseUrl: "",
     apiKey: "",
-    enableProxy: true,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -57,7 +55,6 @@ export function ProviderForm({
         type: provider.type,
         apiBaseUrl: provider.apiBaseUrl,
         apiKey: "", // Don't populate API key for security
-        enableProxy: provider.enableProxy,
       });
     } else {
       // Reset form when switching to create mode
@@ -66,7 +63,6 @@ export function ProviderForm({
         type: "OpenAI",
         apiBaseUrl: "",
         apiKey: "",
-        enableProxy: true,
       });
     }
   }, [provider]);
@@ -199,24 +195,6 @@ export function ProviderForm({
                 Leave empty to keep the existing API key
               </p>
             )}
-          </div>
-
-          {/* Enable Proxy */}
-          <div className="flex items-center justify-between rounded-md border border-border p-3">
-            <div className="space-y-0.5">
-              <Label htmlFor="enableProxy">Enable Proxy</Label>
-              <p className="text-[10px] text-muted-foreground">
-                Route requests through the local proxy server
-              </p>
-            </div>
-            <Switch
-              id="enableProxy"
-              checked={formData.enableProxy}
-              onCheckedChange={(checked) =>
-                setFormData((prev) => ({ ...prev, enableProxy: checked }))
-              }
-              className="scale-90"
-            />
           </div>
 
           <DialogFooter className="flex-row justify-between sm:justify-between">

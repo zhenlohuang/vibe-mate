@@ -5,17 +5,10 @@ import { MainContent } from "@/components/layout/main-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useAppConfig } from "@/hooks/use-tauri";
 import { useToast } from "@/hooks/use-toast";
-import { PROXY_TYPES, PROXY_MODES } from "@/lib/constants";
-import type { ProxyType, ProxyMode, UpdateAppConfigInput } from "@/types";
+import type { UpdateAppConfigInput } from "@/types";
 
 export function SettingsPage() {
   const { appConfig, updateConfig } = useAppConfig();
@@ -24,26 +17,26 @@ export function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const [formData, setFormData] = useState({
-    proxyServerPort: "12345",
-    proxyMode: "System" as ProxyMode,
-    proxyType: "SOCKS5" as ProxyType,
+    appPort: "12345",
+    enableProxy: false,
     proxyHost: "127.0.0.1",
     proxyPort: "7890",
+    noProxy: "",
   });
 
   useEffect(() => {
     if (appConfig) {
       setFormData({
-        proxyServerPort: appConfig.proxyServerPort?.toString() || "12345",
-        proxyMode: appConfig.proxyMode || "System",
-        proxyType: appConfig.proxyType || "SOCKS5",
+        appPort: appConfig.appPort?.toString() || "12345",
+        enableProxy: appConfig.enableProxy || false,
         proxyHost: appConfig.proxyHost || "127.0.0.1",
         proxyPort: appConfig.proxyPort?.toString() || "7890",
+        noProxy: appConfig.noProxy?.join(", ") || "",
       });
     }
   }, [appConfig]);
 
-  const handleFieldChange = (field: string, value: string) => {
+  const handleFieldChange = (field: string, value: string | boolean) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     setHasChanges(true);
   };
@@ -51,11 +44,11 @@ export function SettingsPage() {
   const handleCancel = () => {
     if (appConfig) {
       setFormData({
-        proxyServerPort: appConfig.proxyServerPort?.toString() || "12345",
-        proxyMode: appConfig.proxyMode || "System",
-        proxyType: appConfig.proxyType || "SOCKS5",
+        appPort: appConfig.appPort?.toString() || "12345",
+        enableProxy: appConfig.enableProxy || false,
         proxyHost: appConfig.proxyHost || "127.0.0.1",
         proxyPort: appConfig.proxyPort?.toString() || "7890",
+        noProxy: appConfig.noProxy?.join(", ") || "",
       });
     }
     setHasChanges(false);
@@ -64,12 +57,17 @@ export function SettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      const noProxyList = formData.noProxy
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0);
+
       const input: UpdateAppConfigInput = {
-        proxyServerPort: parseInt(formData.proxyServerPort) || 12345,
-        proxyMode: formData.proxyMode,
-        proxyType: formData.proxyType,
+        appPort: parseInt(formData.appPort) || 12345,
+        enableProxy: formData.enableProxy,
         proxyHost: formData.proxyHost || null,
         proxyPort: formData.proxyPort ? parseInt(formData.proxyPort) : null,
+        noProxy: noProxyList,
       };
       await updateConfig(input);
       toast({
@@ -115,9 +113,9 @@ export function SettingsPage() {
             <Input
               id="port"
               type="text"
-              value={formData.proxyServerPort}
+              value={formData.appPort}
               onChange={(e) =>
-                handleFieldChange("proxyServerPort", e.target.value)
+                handleFieldChange("appPort", e.target.value)
               }
               placeholder="12345"
               className="h-8 w-32 font-mono text-sm"
@@ -141,53 +139,22 @@ export function SettingsPage() {
 
           <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3 pl-8">
             <Label
-              htmlFor="proxyMode"
+              htmlFor="enableProxy"
               className="text-xs text-muted-foreground"
             >
-              Proxy Mode
+              Enable Proxy
             </Label>
-            <Select
-              value={formData.proxyMode}
-              onValueChange={(value) => handleFieldChange("proxyMode", value)}
-            >
-              <SelectTrigger id="proxyMode" className="h-8 w-40 text-sm">
-                <SelectValue placeholder="Select mode" />
-              </SelectTrigger>
-              <SelectContent>
-                {PROXY_MODES.map((mode) => (
-                  <SelectItem key={mode.value} value={mode.value}>
-                    {mode.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Switch
+              id="enableProxy"
+              checked={formData.enableProxy}
+              onCheckedChange={(checked) =>
+                handleFieldChange("enableProxy", checked)
+              }
+              className="scale-90"
+            />
 
-            {formData.proxyMode === "Custom" && (
+            {formData.enableProxy && (
               <>
-                <Label
-                  htmlFor="proxyType"
-                  className="text-xs text-muted-foreground"
-                >
-                  Proxy Type
-                </Label>
-                <Select
-                  value={formData.proxyType}
-                  onValueChange={(value) =>
-                    handleFieldChange("proxyType", value)
-                  }
-                >
-                  <SelectTrigger id="proxyType" className="h-8 w-32 text-sm">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {PROXY_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
                 <Label
                   htmlFor="proxyHost"
                   className="text-xs text-muted-foreground"
@@ -220,6 +187,27 @@ export function SettingsPage() {
                   placeholder="7890"
                   className="h-8 w-24 font-mono text-sm"
                 />
+
+                <Label
+                  htmlFor="noProxy"
+                  className="text-xs text-muted-foreground"
+                >
+                  No Proxy
+                </Label>
+                <div className="space-y-1">
+                  <Input
+                    id="noProxy"
+                    value={formData.noProxy}
+                    onChange={(e) =>
+                      handleFieldChange("noProxy", e.target.value)
+                    }
+                    placeholder="localhost, 127.0.0.1, *.local"
+                    className="h-8 font-mono text-sm"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Comma-separated list of hosts to bypass proxy
+                  </p>
+                </div>
               </>
             )}
           </div>
