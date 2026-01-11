@@ -11,3 +11,9 @@ export const PROXY_TYPES = [
   { value: "HTTP", label: "HTTP" },
   { value: "HTTPS", label: "HTTPS" },
 ] as const;
+
+export const PROXY_MODES = [
+  { value: "System", label: "System Proxy" },
+  { value: "Custom", label: "Custom Proxy" },
+  { value: "None", label: "No Proxy" },
+] as const;

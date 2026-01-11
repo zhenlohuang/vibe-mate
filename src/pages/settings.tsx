@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/select";
 import { useAppConfig } from "@/hooks/use-tauri";
 import { useToast } from "@/hooks/use-toast";
-import { PROXY_TYPES } from "@/lib/constants";
-import type { ProxyType, UpdateAppConfigInput } from "@/types";
+import { PROXY_TYPES, PROXY_MODES } from "@/lib/constants";
+import type { ProxyType, ProxyMode, UpdateAppConfigInput } from "@/types";
 
 export function SettingsPage() {
   const { appConfig, updateConfig } = useAppConfig();
@@ -25,6 +25,7 @@ export function SettingsPage() {
 
   const [formData, setFormData] = useState({
     proxyServerPort: "12345",
+    proxyMode: "System" as ProxyMode,
     proxyType: "SOCKS5" as ProxyType,
     proxyHost: "127.0.0.1",
     proxyPort: "7890",
@@ -34,6 +35,7 @@ export function SettingsPage() {
     if (appConfig) {
       setFormData({
         proxyServerPort: appConfig.proxyServerPort?.toString() || "12345",
+        proxyMode: appConfig.proxyMode || "System",
         proxyType: appConfig.proxyType || "SOCKS5",
         proxyHost: appConfig.proxyHost || "127.0.0.1",
         proxyPort: appConfig.proxyPort?.toString() || "7890",
@@ -50,6 +52,7 @@ export function SettingsPage() {
     if (appConfig) {
       setFormData({
         proxyServerPort: appConfig.proxyServerPort?.toString() || "12345",
+        proxyMode: appConfig.proxyMode || "System",
         proxyType: appConfig.proxyType || "SOCKS5",
         proxyHost: appConfig.proxyHost || "127.0.0.1",
         proxyPort: appConfig.proxyPort?.toString() || "7890",
@@ -63,6 +66,7 @@ export function SettingsPage() {
     try {
       const input: UpdateAppConfigInput = {
         proxyServerPort: parseInt(formData.proxyServerPort) || 12345,
+        proxyMode: formData.proxyMode,
         proxyType: formData.proxyType,
         proxyHost: formData.proxyHost || null,
         proxyPort: formData.proxyPort ? parseInt(formData.proxyPort) : null,
@@ -87,120 +91,139 @@ export function SettingsPage() {
   return (
     <MainContent
       title="Preferences"
-      description="Manage your local vibe ports and upstream proxy connections to ensure seamless agent communication."
+      description="Manage your local vibe ports and upstream proxy connections."
     >
-      <div className="space-y-4">
+      <div className="max-w-xl space-y-6">
+        {/* App Settings */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
-          className="rounded-lg border border-dashed border-border/60 p-4"
+          className="space-y-4"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
               <SettingsIcon className="h-3.5 w-3.5 text-primary" />
             </div>
-            <h2 className="text-sm font-semibold">App Settings</h2>
+            <h2 className="text-sm font-medium">App Settings</h2>
           </div>
 
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="port">Port</Label>
-              <div className="relative">
-                <Input
-                  id="port"
-                  type="text"
-                  value={formData.proxyServerPort}
-                  onChange={(e) => handleFieldChange("proxyServerPort", e.target.value)}
-                  placeholder="12345"
-                  className="font-mono pr-6"
-                />
-                {formData.proxyServerPort && (
-                  <span className="absolute right-2 top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-success" />
-                )}
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                The local port where the Vibe Mate interface is served.
-              </p>
-            </div>
+          <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3 pl-8">
+            <Label htmlFor="port" className="text-xs text-muted-foreground">
+              Server Port
+            </Label>
+            <Input
+              id="port"
+              type="text"
+              value={formData.proxyServerPort}
+              onChange={(e) => handleFieldChange("proxyServerPort", e.target.value)}
+              placeholder="12345"
+              className="h-8 w-32 font-mono text-sm"
+            />
           </div>
         </motion.div>
 
+        {/* Network Settings */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="rounded-lg border border-dashed border-border/60 p-4"
+          className="space-y-4"
         >
-          <div className="flex items-center gap-2 mb-4">
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
               <Network className="h-3.5 w-3.5 text-primary" />
             </div>
-            <h2 className="text-sm font-semibold">Network Settings</h2>
+            <h2 className="text-sm font-medium">Network Settings</h2>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="proxyType">Proxy Type</Label>
-              <Select
-                value={formData.proxyType}
-                onValueChange={(value) => handleFieldChange("proxyType", value)}
-              >
-                <SelectTrigger id="proxyType">
-                  <SelectValue placeholder="Select proxy type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PROXY_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3 pl-8">
+            <Label htmlFor="proxyMode" className="text-xs text-muted-foreground">
+              Proxy Mode
+            </Label>
+            <Select
+              value={formData.proxyMode}
+              onValueChange={(value) => handleFieldChange("proxyMode", value)}
+            >
+              <SelectTrigger id="proxyMode" className="h-8 w-40 text-sm">
+                <SelectValue placeholder="Select mode" />
+              </SelectTrigger>
+              <SelectContent>
+                {PROXY_MODES.map((mode) => (
+                  <SelectItem key={mode.value} value={mode.value}>
+                    {mode.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="proxyHost">Host</Label>
-              <Input
-                id="proxyHost"
-                value={formData.proxyHost}
-                onChange={(e) => handleFieldChange("proxyHost", e.target.value)}
-                placeholder="127.0.0.1"
-                className="font-mono"
-              />
-            </div>
+            {formData.proxyMode === "Custom" && (
+              <>
+                <Label htmlFor="proxyType" className="text-xs text-muted-foreground">
+                  Proxy Type
+                </Label>
+                <Select
+                  value={formData.proxyType}
+                  onValueChange={(value) => handleFieldChange("proxyType", value)}
+                >
+                  <SelectTrigger id="proxyType" className="h-8 w-32 text-sm">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PROXY_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="proxyPort">Port</Label>
-              <Input
-                id="proxyPort"
-                type="text"
-                value={formData.proxyPort}
-                onChange={(e) => handleFieldChange("proxyPort", e.target.value)}
-                placeholder="7890"
-                className="font-mono"
-              />
-            </div>
+                <Label htmlFor="proxyHost" className="text-xs text-muted-foreground">
+                  Host
+                </Label>
+                <Input
+                  id="proxyHost"
+                  value={formData.proxyHost}
+                  onChange={(e) => handleFieldChange("proxyHost", e.target.value)}
+                  placeholder="127.0.0.1"
+                  className="h-8 w-48 font-mono text-sm"
+                />
+
+                <Label htmlFor="proxyPort" className="text-xs text-muted-foreground">
+                  Port
+                </Label>
+                <Input
+                  id="proxyPort"
+                  type="text"
+                  value={formData.proxyPort}
+                  onChange={(e) => handleFieldChange("proxyPort", e.target.value)}
+                  placeholder="7890"
+                  className="h-8 w-24 font-mono text-sm"
+                />
+              </>
+            )}
           </div>
         </motion.div>
 
+        {/* Actions */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
-          className="flex items-center justify-end gap-2 pt-3 border-t border-border/40"
+          className="flex items-center gap-2 pt-4 border-t border-border/40"
         >
           <Button
             variant="ghost"
+            size="sm"
             onClick={handleCancel}
             disabled={isSaving || !hasChanges}
           >
             Cancel
           </Button>
           <Button
+            size="sm"
             onClick={handleSave}
             disabled={isSaving}
-            className="min-w-[100px]"
           >
             {isSaving ? (
               <>
@@ -219,4 +242,3 @@ export function SettingsPage() {
     </MainContent>
   );
 }
-
