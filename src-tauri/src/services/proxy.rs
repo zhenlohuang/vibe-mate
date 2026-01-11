@@ -20,8 +20,8 @@ use tower_http::cors::{Any, CorsLayer};
 use crate::models::{ApiGroup, Provider, ProxyMode, RoutingRule, RuleType, VibeMateConfig};
 use crate::storage::ConfigStore;
 
-/// Create HTTP client with optional proxy support
-fn create_http_client(config: &VibeMateConfig) -> Client {
+/// Create HTTP client with proxy support based on config
+fn create_http_client_with_proxy(config: &VibeMateConfig) -> Client {
     let mut builder = Client::builder()
         .timeout(std::time::Duration::from_secs(300)); // 5 minutes timeout
 
@@ -29,7 +29,7 @@ fn create_http_client(config: &VibeMateConfig) -> Client {
         ProxyMode::Custom => {
             if let (Some(host), Some(port)) = (&config.app.proxy_host, config.app.proxy_port) {
                 let proxy_url = format!("http://{}:{}", host, port);
-                tracing::info!("Using custom proxy: {}", proxy_url);
+                tracing::info!("Creating proxied client with custom proxy: {}", proxy_url);
                 if let Ok(proxy) = reqwest::Proxy::all(&proxy_url) {
                     builder = builder.proxy(proxy);
                 }
@@ -37,16 +37,26 @@ fn create_http_client(config: &VibeMateConfig) -> Client {
         }
         ProxyMode::System => {
             // reqwest uses system proxy by default, no need to configure
-            tracing::debug!("Using system proxy");
+            tracing::debug!("Creating proxied client with system proxy");
         }
         ProxyMode::None => {
-            // Disable all proxies
-            tracing::debug!("Proxy disabled");
+            // Even when global proxy is None, this client is for providers that want proxy
+            // In this case, we still create a client without proxy
+            tracing::debug!("Creating proxied client (but global proxy is disabled)");
             builder = builder.no_proxy();
         }
     }
 
     builder.build().expect("Failed to create HTTP client")
+}
+
+/// Create HTTP client without any proxy
+fn create_http_client_no_proxy() -> Client {
+    Client::builder()
+        .timeout(std::time::Duration::from_secs(300))
+        .no_proxy()
+        .build()
+        .expect("Failed to create HTTP client without proxy")
 }
 
 /// Proxy server state shared across the application
@@ -92,14 +102,15 @@ impl ProxyServer {
         }
 
         let addr = SocketAddr::from(([127, 0, 0, 1], port));
-        
+
         // Create shutdown channel
         let (shutdown_tx, shutdown_rx) = oneshot::channel::<()>();
         *self.shutdown_tx.write().await = Some(shutdown_tx);
 
-        // Create HTTP client with proxy configuration
+        // Create HTTP clients - one with proxy, one without
         let config = self.store.get_config().await;
-        let http_client = create_http_client(&config);
+        let http_client_with_proxy = create_http_client_with_proxy(&config);
+        let http_client_no_proxy = create_http_client_no_proxy();
 
         // Setup CORS
         let cors = CorsLayer::new()
@@ -110,7 +121,8 @@ impl ProxyServer {
         // Build the router
         let app_state = AppState {
             server: Arc::clone(self),
-            http_client,
+            http_client_with_proxy,
+            http_client_no_proxy,
         };
 
         let app = Router::new()
@@ -141,7 +153,7 @@ impl ProxyServer {
                 })
                 .await
                 .ok();
-            
+
             server_handle.is_running.store(false, Ordering::SeqCst);
             tracing::info!("Proxy server stopped");
         });
@@ -172,7 +184,10 @@ impl ProxyServer {
 #[derive(Clone)]
 struct AppState {
     server: Arc<ProxyServer>,
-    http_client: Client,
+    /// HTTP client with proxy enabled (respects global proxy settings)
+    http_client_with_proxy: Client,
+    /// HTTP client without any proxy
+    http_client_no_proxy: Client,
 }
 
 /// Health check endpoint
@@ -195,7 +210,7 @@ async fn generic_proxy_handler(
     let full_path = req.uri().path().to_string();
     let path = full_path.strip_prefix("/api").unwrap_or(&full_path).to_string();
     let method = req.method().clone();
-    
+
     tracing::debug!("Generic proxy request: {} {} (original: {})", method, path, full_path);
 
     // Read the request body
@@ -210,12 +225,12 @@ async fn generic_proxy_handler(
 
     // Extract model from request body (for chat/completions requests)
     let model_name = extract_model_from_body(&body_bytes);
-    
+
     tracing::debug!("Request model: {:?}", model_name);
 
     // Get config and find the matching provider
     let config = state.server.config_store().get_config().await;
-    
+
     let resolved = match resolve_provider(
         &config,
         ApiGroup::Generic,
@@ -233,11 +248,12 @@ async fn generic_proxy_handler(
     };
 
     tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}",
+        "Routing to provider: {} ({}), model: {} -> {}, proxy: {}",
         resolved.provider.name,
         resolved.provider.api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model
+        resolved.final_model,
+        resolved.provider.enable_proxy
     );
 
     // Build the target URL - handle the case where api_base_url already contains /v1
@@ -256,8 +272,15 @@ async fn generic_proxy_handler(
         body_bytes.to_vec()
     };
 
+    // Select HTTP client based on provider's enable_proxy setting
+    let http_client = if resolved.provider.enable_proxy {
+        &state.http_client_with_proxy
+    } else {
+        &state.http_client_no_proxy
+    };
+
     // Build the outgoing request
-    let mut outgoing_req = state.http_client.request(method.clone(), &target_url);
+    let mut outgoing_req = http_client.request(method.clone(), &target_url);
 
     // Copy headers, but replace Authorization and Host
     for (key, value) in parts.headers.iter() {
@@ -321,7 +344,7 @@ async fn openai_proxy_handler(
     let full_path = req.uri().path().to_string();
     let path = full_path.strip_prefix("/api/openai").unwrap_or(&full_path).to_string();
     let method = req.method().clone();
-    
+
     tracing::debug!("OpenAI proxy request: {} {} (original: {})", method, path, full_path);
 
     // Read the request body
@@ -336,12 +359,12 @@ async fn openai_proxy_handler(
 
     // Extract model from request body (for chat/completions requests)
     let model_name = extract_model_from_body(&body_bytes);
-    
+
     tracing::debug!("Request model: {:?}", model_name);
 
     // Get config and find the matching provider
     let config = state.server.config_store().get_config().await;
-    
+
     let resolved = match resolve_provider(
         &config,
         ApiGroup::OpenAI,
@@ -359,11 +382,12 @@ async fn openai_proxy_handler(
     };
 
     tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}",
+        "Routing to provider: {} ({}), model: {} -> {}, proxy: {}",
         resolved.provider.name,
         resolved.provider.api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model
+        resolved.final_model,
+        resolved.provider.enable_proxy
     );
 
     // Build the target URL - handle the case where api_base_url already contains /v1
@@ -382,8 +406,15 @@ async fn openai_proxy_handler(
         body_bytes.to_vec()
     };
 
+    // Select HTTP client based on provider's enable_proxy setting
+    let http_client = if resolved.provider.enable_proxy {
+        &state.http_client_with_proxy
+    } else {
+        &state.http_client_no_proxy
+    };
+
     // Build the outgoing request
-    let mut outgoing_req = state.http_client.request(method.clone(), &target_url);
+    let mut outgoing_req = http_client.request(method.clone(), &target_url);
 
     // Copy headers, but replace Authorization and Host
     for (key, value) in parts.headers.iter() {
@@ -447,7 +478,7 @@ async fn anthropic_proxy_handler(
     let full_path = req.uri().path().to_string();
     let path = full_path.strip_prefix("/api/anthropic").unwrap_or(&full_path).to_string();
     let method = req.method().clone();
-    
+
     tracing::debug!("Anthropic proxy request: {} {} (original: {})", method, path, full_path);
 
     // Read the request body
@@ -462,12 +493,12 @@ async fn anthropic_proxy_handler(
 
     // Extract model from request body
     let model_name = extract_model_from_body(&body_bytes);
-    
+
     tracing::debug!("Request model: {:?}", model_name);
 
     // Get config and find the matching provider
     let config = state.server.config_store().get_config().await;
-    
+
     let resolved = match resolve_provider(
         &config,
         ApiGroup::Anthropic,
@@ -485,11 +516,12 @@ async fn anthropic_proxy_handler(
     };
 
     tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}",
+        "Routing to provider: {} ({}), model: {} -> {}, proxy: {}",
         resolved.provider.name,
         resolved.provider.api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model
+        resolved.final_model,
+        resolved.provider.enable_proxy
     );
 
     // Build the target URL for Anthropic
@@ -503,8 +535,15 @@ async fn anthropic_proxy_handler(
         body_bytes.to_vec()
     };
 
+    // Select HTTP client based on provider's enable_proxy setting
+    let http_client = if resolved.provider.enable_proxy {
+        &state.http_client_with_proxy
+    } else {
+        &state.http_client_no_proxy
+    };
+
     // Build the outgoing request
-    let mut outgoing_req = state.http_client.request(method.clone(), &target_url);
+    let mut outgoing_req = http_client.request(method.clone(), &target_url);
 
     // Copy headers, but replace Authorization and Host
     for (key, value) in parts.headers.iter() {
@@ -718,7 +757,7 @@ fn add_auth_header(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest
 async fn handle_regular_response(response: reqwest::Response) -> Result<Response<Body>, StatusCode> {
     let status = response.status();
     let headers = response.headers().clone();
-    
+
     let body_bytes = response.bytes().await.map_err(|e| {
         tracing::error!("Failed to read response body: {}", e);
         StatusCode::BAD_GATEWAY
@@ -727,7 +766,7 @@ async fn handle_regular_response(response: reqwest::Response) -> Result<Response
     tracing::debug!("Response body size: {} bytes", body_bytes.len());
 
     let mut builder = Response::builder().status(status);
-    
+
     // Copy relevant headers (skip transfer-encoding as we're using a known body length)
     for (key, value) in headers.iter() {
         if key != header::TRANSFER_ENCODING {
@@ -747,7 +786,7 @@ async fn handle_regular_response(response: reqwest::Response) -> Result<Response
 async fn handle_streaming_response(response: reqwest::Response) -> Result<Response<Body>, StatusCode> {
     let status = response.status();
     let headers = response.headers().clone();
-    
+
     // Create a stream from the response body
     let stream = response.bytes_stream().map(|result| {
         result.map_err(|e| {
@@ -759,7 +798,7 @@ async fn handle_streaming_response(response: reqwest::Response) -> Result<Respon
     let body = Body::from_stream(stream);
 
     let mut builder = Response::builder().status(status);
-    
+
     for (key, value) in headers.iter() {
         builder = builder.header(key, value);
     }
