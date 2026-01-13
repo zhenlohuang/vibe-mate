@@ -1,12 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import {
-  Settings,
-  Server,
-  GitMerge,
-  Bot,
-  LayoutDashboard,
-} from "lucide-react";
+import { Settings, Server, GitMerge, Bot, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
 
@@ -19,10 +13,20 @@ interface SidebarItem {
 
 const menuItems: SidebarItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/" },
-  { id: "providers", label: "Model Providers", icon: Server, href: "/providers" },
+  {
+    id: "providers",
+    label: "Model Providers",
+    icon: Server,
+    href: "/providers",
+  },
   { id: "router", label: "Routing Rules", icon: GitMerge, href: "/router" },
   { id: "agents", label: "Coding Agents", icon: Bot, href: "/agents" },
-  { id: "preferences", label: "Preferences", icon: Settings, href: "/settings" },
+  {
+    id: "preferences",
+    label: "Preferences",
+    icon: Settings,
+    href: "/settings",
+  },
 ];
 
 export function Sidebar() {
@@ -30,7 +34,8 @@ export function Sidebar() {
   const proxyStatus = useAppStore((state) => state.proxyStatus);
 
   const renderMenuItem = (item: SidebarItem) => {
-    const isActive = location.pathname === item.href || 
+    const isActive =
+      location.pathname === item.href ||
       (item.href !== "/" && location.pathname.startsWith(item.href));
     const Icon = item.icon;
 
@@ -43,7 +48,7 @@ export function Sidebar() {
             "flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm font-medium transition-colors",
             isActive
               ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground",
           )}
         >
           <Icon className="h-4 w-4 shrink-0" />
@@ -54,14 +59,16 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-[200px] border-r border-border bg-background flex flex-col">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-[180px] border-r border-border bg-background flex flex-col">
       {/* Header with Logo */}
-      <div className="flex h-12 items-center gap-2.5 px-3">
+      <div className="flex h-14 items-center gap-3 px-3 border-b border-border">
         {/* Circular logo with gradient border */}
         <div className="relative flex h-8 w-8 items-center justify-center shrink-0">
-          <div 
+          <div
             className="absolute inset-0 rounded-full p-[1.5px]"
-            style={{ background: "linear-gradient(135deg, #a855f7, #3b82f6, #22d3ee)" }}
+            style={{
+              background: "linear-gradient(135deg, #a855f7, #3b82f6, #22d3ee)",
+            }}
           >
             <div className="flex h-full w-full items-center justify-center rounded-full bg-background">
               <svg
@@ -90,15 +97,25 @@ export function Sidebar() {
             </div>
           </div>
         </div>
-        <div className="flex flex-col min-w-0">
-          <span className="text-xs font-semibold tracking-tight truncate">Vibe Mate</span>
-          <div className="flex items-center gap-1">
+        <span className="text-sm font-semibold tracking-tight truncate">Vibe Mate</span>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 px-2 py-3 overflow-y-auto">
+        <div className="space-y-0.5">{menuItems.map(renderMenuItem)}</div>
+      </nav>
+
+      {/* Status Indicator */}
+      <div className="border-t border-border px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Status:</span>
+          <div className="flex items-center gap-1.5">
             <span className={cn(
-              "h-1.5 w-1.5 rounded-full shrink-0",
+              "h-2 w-2 rounded-full shrink-0",
               proxyStatus.isRunning ? "bg-success" : "bg-error"
             )} />
             <span className={cn(
-              "text-[9px] font-medium",
+              "text-xs font-medium",
               proxyStatus.isRunning ? "text-success" : "text-error"
             )}>
               {proxyStatus.isRunning ? "Online" : "Offline"}
@@ -106,13 +123,6 @@ export function Sidebar() {
           </div>
         </div>
       </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-2 py-3 overflow-y-auto">
-        <div className="space-y-0.5">
-          {menuItems.map(renderMenuItem)}
-        </div>
-      </nav>
     </aside>
   );
 }

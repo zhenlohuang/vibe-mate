@@ -13,7 +13,7 @@ export function MainContent({
   children 
 }: MainContentProps) {
   return (
-    <main className="ml-[200px] min-h-screen flex flex-col flex-1">
+    <main className="ml-[180px] min-h-screen flex flex-col flex-1">
       <motion.div
         initial="initial"
         animate="animate"
