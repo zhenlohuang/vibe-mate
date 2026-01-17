@@ -15,7 +15,7 @@ const menuItems: SidebarItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/" },
   {
     id: "providers",
-    label: "Model Providers",
+    label: "Providers",
     icon: Server,
     href: "/providers",
   },
@@ -97,7 +97,9 @@ export function Sidebar() {
             </div>
           </div>
         </div>
-        <span className="text-sm font-semibold tracking-tight truncate">Vibe Mate</span>
+        <span className="text-sm font-semibold tracking-tight truncate">
+          Vibe Mate
+        </span>
       </div>
 
       {/* Navigation */}
@@ -108,16 +110,22 @@ export function Sidebar() {
       {/* Status Indicator */}
       <div className="border-t border-border px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">Status:</span>
+          <span className="text-xs font-medium text-muted-foreground">
+            Status:
+          </span>
           <div className="flex items-center gap-1.5">
-            <span className={cn(
-              "h-2 w-2 rounded-full shrink-0",
-              proxyStatus.isRunning ? "bg-success" : "bg-error"
-            )} />
-            <span className={cn(
-              "text-xs font-medium",
-              proxyStatus.isRunning ? "text-success" : "text-error"
-            )}>
+            <span
+              className={cn(
+                "h-2 w-2 rounded-full shrink-0",
+                proxyStatus.isRunning ? "bg-success" : "bg-error",
+              )}
+            />
+            <span
+              className={cn(
+                "text-xs font-medium",
+                proxyStatus.isRunning ? "text-success" : "text-error",
+              )}
+            >
               {proxyStatus.isRunning ? "Online" : "Offline"}
             </span>
           </div>

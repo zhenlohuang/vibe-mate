@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Provider, ProviderType, CreateProviderInput } from "@/types";
+import type { Provider, CreateProviderInput, ModelProviderType } from "@/types";
 import { PROVIDER_TYPES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,7 @@ export function ProviderForm({
 
   const [formData, setFormData] = useState<CreateProviderInput>({
     name: "",
+    category: "Model",
     type: "OpenAI",
     apiBaseUrl: "",
     apiKey: "",
@@ -52,14 +53,16 @@ export function ProviderForm({
     if (provider) {
       setFormData({
         name: provider.name,
+        category: provider.category,
         type: provider.type,
-        apiBaseUrl: provider.apiBaseUrl,
+        apiBaseUrl: provider.apiBaseUrl || "",
         apiKey: "", // Don't populate API key for security
       });
     } else {
       // Reset form when switching to create mode
       setFormData({
         name: "",
+        category: "Model",
         type: "OpenAI",
         apiBaseUrl: "",
         apiKey: "",
@@ -94,12 +97,12 @@ export function ProviderForm({
   };
 
   // Set default API base URL when provider type changes
-  const handleTypeChange = (type: ProviderType) => {
-    const defaultUrls: Record<ProviderType, string> = {
+  const handleTypeChange = (type: ModelProviderType) => {
+    const defaultUrls: Record<ModelProviderType, string> = {
       OpenAI: "https://api.openai.com",
       Anthropic: "https://api.anthropic.com",
       Google: "https://generativelanguage.googleapis.com",
-      Azure: "https://your-resource.openai.azure.com",
+      OpenRouter: "https://openrouter.ai/api",
       Custom: "",
     };
 
@@ -131,7 +134,9 @@ export function ProviderForm({
             <Label htmlFor="type">Provider Type</Label>
             <Select
               value={formData.type}
-              onValueChange={(value) => handleTypeChange(value as ProviderType)}
+              onValueChange={(value) =>
+                handleTypeChange(value as ModelProviderType)
+              }
               disabled={isEdit}
             >
               <SelectTrigger>
@@ -228,4 +233,3 @@ export function ProviderForm({
     </Dialog>
   );
 }
-

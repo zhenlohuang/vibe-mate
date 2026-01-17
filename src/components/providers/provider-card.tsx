@@ -94,7 +94,7 @@ export function ProviderCard({
               Endpoint
             </div>
             <div className="rounded-md bg-secondary/50 px-2 py-1.5 font-mono text-[11px] text-foreground/80 truncate">
-              {provider.apiBaseUrl}
+              {provider.apiBaseUrl || "Not configured"}
             </div>
           </div>
 

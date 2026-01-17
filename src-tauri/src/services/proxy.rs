@@ -34,7 +34,8 @@ fn create_http_client(config: &VibeMateConfig) -> Client {
                     // Configure no_proxy list
                     if !config.app.no_proxy.is_empty() {
                         tracing::debug!("Configuring no_proxy patterns: {:?}", config.app.no_proxy);
-                        let no_proxy = reqwest::NoProxy::from_string(&config.app.no_proxy.join(","));
+                        let no_proxy =
+                            reqwest::NoProxy::from_string(&config.app.no_proxy.join(","));
                         proxy = proxy.no_proxy(no_proxy);
                     }
                     builder = builder.proxy(proxy);
@@ -266,16 +267,27 @@ async fn generic_proxy_handler(
         }
     };
 
+    // Ensure we have a valid API base URL (only Model providers have this)
+    let api_base_url = match resolved.provider.api_base_url.as_ref() {
+        Some(url) => url,
+        None => {
+            return Ok(error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Provider has no API base URL configured",
+            ));
+        }
+    };
+
     tracing::info!(
         "Routing to provider: {} ({}), model: {} -> {}",
         resolved.provider.name,
-        resolved.provider.api_base_url,
+        api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
         resolved.final_model
     );
 
     // Build the target URL - handle the case where api_base_url already contains /v1
-    let base_url = resolved.provider.api_base_url.trim_end_matches('/');
+    let base_url = api_base_url.trim_end_matches('/');
     let target_url = if base_url.ends_with("/v1") && path.starts_with("/v1") {
         // If base URL ends with /v1 and path starts with /v1, strip /v1 from path
         format!("{}{}", base_url, &path[3..])
@@ -399,16 +411,27 @@ async fn openai_proxy_handler(
             }
         };
 
+    // Ensure we have a valid API base URL (only Model providers have this)
+    let api_base_url = match resolved.provider.api_base_url.as_ref() {
+        Some(url) => url,
+        None => {
+            return Ok(error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Provider has no API base URL configured",
+            ));
+        }
+    };
+
     tracing::info!(
         "Routing to provider: {} ({}), model: {} -> {}",
         resolved.provider.name,
-        resolved.provider.api_base_url,
+        api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
         resolved.final_model
     );
 
     // Build the target URL - handle the case where api_base_url already contains /v1
-    let base_url = resolved.provider.api_base_url.trim_end_matches('/');
+    let base_url = api_base_url.trim_end_matches('/');
     let target_url = if base_url.ends_with("/v1") && path.starts_with("/v1") {
         // If base URL ends with /v1 and path starts with /v1, strip /v1 from path
         format!("{}{}", base_url, &path[3..])
@@ -536,16 +559,27 @@ async fn anthropic_proxy_handler(
         }
     };
 
+    // Ensure we have a valid API base URL (only Model providers have this)
+    let api_base_url = match resolved.provider.api_base_url.as_ref() {
+        Some(url) => url,
+        None => {
+            return Ok(error_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Provider has no API base URL configured",
+            ));
+        }
+    };
+
     tracing::info!(
         "Routing to provider: {} ({}), model: {} -> {}",
         resolved.provider.name,
-        resolved.provider.api_base_url,
+        api_base_url,
         model_name.as_deref().unwrap_or("unknown"),
         resolved.final_model
     );
 
     // Build the target URL for Anthropic
-    let base_url = resolved.provider.api_base_url.trim_end_matches('/');
+    let base_url = api_base_url.trim_end_matches('/');
     let target_url = format!("{}{}", base_url, path);
 
     // Prepare the request body (potentially rewrite the model)
@@ -752,24 +786,30 @@ fn rewrite_model_in_body(body: &Bytes, new_model: &str) -> Vec<u8> {
 
 /// Add authentication header based on provider type
 fn add_auth_header(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest::RequestBuilder {
-    use crate::models::ProviderType;
+    use crate::models::{ModelProviderType, ProviderType};
 
-    match provider.provider_type {
-        ProviderType::Anthropic => {
+    let api_key = match provider.api_key.as_ref() {
+        Some(key) => key,
+        None => return req, // No API key, return request as-is
+    };
+
+    match &provider.provider_type {
+        ProviderType::Model(ModelProviderType::Anthropic) => {
             // Anthropic uses x-api-key header
-            req.header("x-api-key", &provider.api_key)
+            req.header("x-api-key", api_key)
                 .header("anthropic-version", "2023-06-01")
         }
-        ProviderType::Google => {
+        ProviderType::Model(ModelProviderType::Google) => {
             // Google uses API key in URL or header
-            req.header("x-goog-api-key", &provider.api_key)
+            req.header("x-goog-api-key", api_key)
         }
-        _ => {
+        ProviderType::Model(_) => {
             // OpenAI, Azure, Custom use Bearer token
-            req.header(
-                header::AUTHORIZATION,
-                format!("Bearer {}", provider.api_key),
-            )
+            req.header(header::AUTHORIZATION, format!("Bearer {}", api_key))
+        }
+        ProviderType::Agent(_) => {
+            // Agent providers don't use API keys in HTTP headers
+            req
         }
     }
 }

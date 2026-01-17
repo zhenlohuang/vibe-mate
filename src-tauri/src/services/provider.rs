@@ -2,7 +2,8 @@ use std::sync::Arc;
 use chrono::Utc;
 
 use crate::models::{
-    ConnectionStatus, CreateProviderInput, Provider, ProviderStatus, UpdateProviderInput,
+    ConnectionStatus, CreateProviderInput, Provider, ProviderCategory, ProviderStatus,
+    ProviderType, UpdateProviderInput,
 };
 use crate::storage::ConfigStore;
 
@@ -41,12 +42,37 @@ impl ProviderService {
         &self,
         input: CreateProviderInput,
     ) -> Result<Provider, ProviderError> {
-        let provider = Provider::new(
-            input.name,
-            input.provider_type,
-            input.api_base_url,
-            input.api_key,
-        );
+        let provider = match input.provider_category {
+            ProviderCategory::Model => {
+                if let ProviderType::Model(model_type) = input.provider_type {
+                    Provider::new_model(
+                        input.name,
+                        model_type,
+                        input.api_base_url.unwrap_or_default(),
+                        input.api_key.unwrap_or_default(),
+                    )
+                } else {
+                    return Err(ProviderError::Storage(crate::storage::StorageError::Io(
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Invalid provider type for Model category",
+                        ),
+                    )));
+                }
+            }
+            ProviderCategory::Agent => {
+                if let ProviderType::Agent(agent_type) = input.provider_type {
+                    Provider::new_agent(input.name, agent_type, input.auth_path)
+                } else {
+                    return Err(ProviderError::Storage(crate::storage::StorageError::Io(
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            "Invalid provider type for Agent category",
+                        ),
+                    )));
+                }
+            }
+        };
 
         let provider_clone = provider.clone();
         self.store
@@ -78,11 +104,14 @@ impl ProviderService {
                     if let Some(name) = input.name.clone() {
                         provider.name = name;
                     }
-                    if let Some(api_base_url) = input.api_base_url.clone() {
-                        provider.api_base_url = api_base_url;
+                    if input.api_base_url.is_some() {
+                        provider.api_base_url = input.api_base_url.clone();
                     }
-                    if let Some(api_key) = input.api_key.clone() {
-                        provider.api_key = api_key;
+                    if input.api_key.is_some() {
+                        provider.api_key = input.api_key.clone();
+                    }
+                    if input.auth_path.is_some() {
+                        provider.auth_path = input.auth_path.clone();
                     }
                     provider.updated_at = Utc::now();
                 }
@@ -131,10 +160,11 @@ impl ProviderService {
         // Simple connectivity test - just check if the URL is reachable
         // In a real implementation, you'd make an actual API call
         let start = std::time::Instant::now();
-        
+
         // For now, we'll simulate a successful connection
         // In production, you'd use reqwest to actually test the endpoint
-        let is_connected = !provider.api_key.is_empty() && !provider.api_base_url.is_empty();
+        let is_connected = provider.api_key.as_ref().map_or(false, |k| !k.is_empty())
+            && provider.api_base_url.as_ref().map_or(false, |u| !u.is_empty());
         let latency_ms = start.elapsed().as_millis() as u64;
 
         // Update provider status

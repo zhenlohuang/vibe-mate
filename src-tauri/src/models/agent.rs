@@ -9,7 +9,11 @@ pub enum AgentType {
 
 impl AgentType {
     pub fn all() -> Vec<AgentType> {
-        vec![AgentType::ClaudeCode, AgentType::Codex, AgentType::GeminiCLI]
+        vec![
+            AgentType::ClaudeCode,
+            AgentType::Codex,
+            AgentType::GeminiCLI,
+        ]
     }
 
     pub fn display_name(&self) -> &'static str {
@@ -52,6 +56,7 @@ pub struct CodingAgent {
     pub status: AgentStatus,
     pub executable_path: Option<String>,
     pub config_path: Option<String>,
+    pub auth_path: Option<String>,
 }
 
 impl CodingAgent {
@@ -63,7 +68,7 @@ impl CodingAgent {
             status: AgentStatus::NotInstalled,
             executable_path: None,
             config_path: None,
+            auth_path: None,
         }
     }
 }
-

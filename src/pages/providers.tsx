@@ -1,12 +1,24 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus, Loader2 } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
-import { ProviderCard, ProviderForm } from "@/components/providers";
+import {
+  ProviderCard,
+  AgentCard,
+  ProviderForm,
+  AgentProviderForm,
+} from "@/components/providers";
 import { useProviders } from "@/hooks/use-providers";
 import { useToast } from "@/hooks/use-toast";
-import type { Provider, CreateProviderInput, UpdateProviderInput } from "@/types";
+import type {
+  Provider,
+  CreateProviderInput,
+  UpdateProviderInput,
+  ProviderCategory,
+  AgentProviderType,
+} from "@/types";
 import { containerVariants, itemVariants } from "@/lib/animations";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function ProvidersPage() {
   const {
@@ -17,11 +29,35 @@ export function ProvidersPage() {
     deleteProvider,
     setDefaultProvider,
     testConnection,
+    refetch,
   } = useProviders();
   const { toast } = useToast();
 
+  const [category, setCategory] = useState<ProviderCategory>("Model");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<Provider | undefined>();
+  const [isAgentFormOpen, setIsAgentFormOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<
+    Provider | undefined
+  >();
+
+  // Get existing agent types to prevent duplicates
+  const existingAgentTypes = useMemo(
+    () =>
+      providers
+        .filter((p) => p.category === "Agent")
+        .map((p) => p.type as AgentProviderType),
+    [providers],
+  );
+
+  // Refetch providers when category changes
+  useEffect(() => {
+    refetch();
+  }, [category, refetch]);
+
+  const filteredProviders = useMemo(
+    () => providers.filter((p) => p.category === category),
+    [providers, category],
+  );
 
   const handleCreate = async (data: CreateProviderInput) => {
     try {
@@ -151,9 +187,24 @@ export function ProvidersPage() {
 
   return (
     <MainContent
-      title="Model Providers"
+      title="Providers"
       description="Configure API keys and proxy settings for your autonomous coding agents."
     >
+      {/* Category Toggle */}
+      <div className="mb-6 flex">
+        <div className="ml-auto">
+          <Tabs
+            value={category}
+            onValueChange={(v) => setCategory(v as ProviderCategory)}
+          >
+            <TabsList>
+              <TabsTrigger value="Model">Model</TabsTrigger>
+              <TabsTrigger value="Agent">Agent</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </div>
+
       {/* Provider Grid */}
       <motion.div
         variants={containerVariants}
@@ -162,15 +213,24 @@ export function ProvidersPage() {
         className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
       >
         <AnimatePresence mode="popLayout">
-          {providers.map((provider) => (
+          {filteredProviders.map((provider) => (
             <motion.div key={provider.id} variants={itemVariants} layout>
-              <ProviderCard
-                provider={provider}
-                onSetDefault={handleSetDefault}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onTestConnection={handleTestConnection}
-              />
+              {provider.category === "Agent" ? (
+                <AgentCard
+                  provider={provider}
+                  onSetDefault={handleSetDefault}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              ) : (
+                <ProviderCard
+                  provider={provider}
+                  onSetDefault={handleSetDefault}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onTestConnection={handleTestConnection}
+                />
+              )}
             </motion.div>
           ))}
         </AnimatePresence>
@@ -178,7 +238,11 @@ export function ProvidersPage() {
         {/* Add Provider Card */}
         <motion.div variants={itemVariants}>
           <button
-            onClick={() => setIsFormOpen(true)}
+            onClick={() =>
+              category === "Agent"
+                ? setIsAgentFormOpen(true)
+                : setIsFormOpen(true)
+            }
             className="w-full h-full min-h-[180px] rounded-lg border-2 border-dashed border-border hover:border-primary/50 bg-card/50 hover:bg-card transition-all flex flex-col items-center justify-center gap-3 group"
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 group-hover:bg-primary/20 transition-colors">
@@ -198,6 +262,14 @@ export function ProvidersPage() {
         provider={editingProvider}
         onSubmit={editingProvider ? handleUpdate : handleCreate}
         onDelete={editingProvider ? handleDelete : undefined}
+      />
+
+      {/* Agent Provider Form Dialog */}
+      <AgentProviderForm
+        open={isAgentFormOpen}
+        onOpenChange={setIsAgentFormOpen}
+        onSubmit={handleCreate}
+        existingAgentTypes={existingAgentTypes}
       />
     </MainContent>
   );
