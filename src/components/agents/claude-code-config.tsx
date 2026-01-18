@@ -1,8 +1,7 @@
 import { motion } from "motion/react";
-import { FileCode, Save, Loader2, PencilLine, Check, X } from "lucide-react";
+import { FileCode, Save, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useToast } from "@/hooks/use-toast";
@@ -10,20 +9,15 @@ import { useToast } from "@/hooks/use-toast";
 interface ClaudeCodeConfigProps {
   configPath: string | null;
   defaultConfigPath: string;
-  onUpdateConfigPath: (configPath: string) => Promise<void>;
 }
 
 export function ClaudeCodeConfig({
   configPath,
   defaultConfigPath,
-  onUpdateConfigPath,
 }: ClaudeCodeConfigProps) {
   const [content, setContent] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [isEditingPath, setIsEditingPath] = useState(false);
-  const [pathValue, setPathValue] = useState(configPath || defaultConfigPath);
-  const [isSavingPath, setIsSavingPath] = useState(false);
   const { toast } = useToast();
   const resolvedConfigPath = configPath || defaultConfigPath;
 
@@ -32,19 +26,12 @@ export function ClaudeCodeConfig({
     loadConfig();
   }, [configPath]);
 
-  useEffect(() => {
-    if (!isEditingPath) {
-      setPathValue(resolvedConfigPath);
-    }
-  }, [isEditingPath, resolvedConfigPath]);
-
-  const loadConfig = async (overridePath?: string | null) => {
+  const loadConfig = async () => {
     setIsLoading(true);
     try {
-      const configPathOverride = overridePath ?? configPath;
-      const config = await invoke<string>("read_agent_config", { 
+      const config = await invoke<string>("read_agent_config", {
         agentType: "ClaudeCode",
-        configPath: configPathOverride || undefined,
+        configPath: configPath || undefined,
       });
       setContent(config);
     } catch (error) {
@@ -69,28 +56,6 @@ export function ClaudeCodeConfig({
 }`);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSavePath = async () => {
-    const nextPath = pathValue.trim();
-    setIsSavingPath(true);
-    try {
-      await onUpdateConfigPath(nextPath);
-      toast({
-        title: "Path Updated",
-        description: "Claude Code config path has been updated.",
-      });
-      setIsEditingPath(false);
-      await loadConfig(nextPath || null);
-    } catch (error) {
-      toast({
-        title: "Failed to update path",
-        description: String(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsSavingPath(false);
     }
   };
 
@@ -131,49 +96,8 @@ export function ClaudeCodeConfig({
             <FileCode className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-xs font-medium">Claude Code Configuration</span>
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-mono">
-            {isEditingPath ? (
-              <>
-                <Input
-                  value={pathValue}
-                  onChange={(e) => setPathValue(e.target.value)}
-                  className="h-6 text-[10px] font-mono"
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={handleSavePath}
-                  disabled={isSavingPath}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => {
-                    setIsEditingPath(false);
-                    setPathValue(resolvedConfigPath);
-                  }}
-                  disabled={isSavingPath}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            ) : (
-              <>
-                <span>{resolvedConfigPath}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setIsEditingPath(true)}
-                >
-                  <PencilLine className="h-3.5 w-3.5" />
-                </Button>
-              </>
-            )}
+          <div className="text-[10px] text-muted-foreground font-mono">
+            <span>{resolvedConfigPath}</span>
           </div>
         </div>
 

@@ -5,10 +5,9 @@ import { useAgents } from "@/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import type { AgentType } from "@/types";
 import { AGENT_TYPES, getDefaultConfigPath, getAgentName } from "@/lib/agents";
-import { invoke } from "@tauri-apps/api/core";
 
 export function AgentsPage() {
-  const { agents, isLoading, refetch } = useAgents();
+  const { agents, isLoading } = useAgents();
   const { toast } = useToast();
 
   // Create a map of discovered agents for quick lookup
@@ -55,32 +54,6 @@ export function AgentsPage() {
     }
   };
 
-  const handleUpdateConfigPath = async (
-    agentType: AgentType,
-    configPath: string,
-  ) => {
-    try {
-      // Save the config path update
-      await invoke("save_agent_config", {
-        agentType,
-        configPath,
-      });
-
-      // Refetch agents to get updated data
-      await refetch();
-
-      toast({
-        title: "Config Updated",
-        description: `Configuration path updated for ${getAgentName(agentType)}.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: String(error),
-        variant: "destructive",
-      });
-    }
-  };
 
   if (isLoading) {
     return (
@@ -116,9 +89,6 @@ export function AgentsPage() {
                 agent={agent}
                 defaultConfigPath={getDefaultConfigPath(agent.agentType)}
                 isInstalled={isInstalled}
-                onUpdateConfigPath={(configPath) =>
-                  handleUpdateConfigPath(agent.agentType, configPath)
-                }
                 onInstall={() => handleInstall(agent.agentType)}
               />
             );

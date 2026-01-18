@@ -2,7 +2,8 @@ use std::process::Command;
 use std::fs;
 use std::path::PathBuf;
 
-use crate::models::{AgentType, CodingAgent};
+use crate::agents::{agent_definition, agent_metadata, all_agent_definitions};
+use crate::models::{AgentStatus, AgentType, CodingAgent};
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentError {
@@ -21,7 +22,12 @@ impl AgentService {
     pub async fn discover_agents(&self) -> Result<Vec<CodingAgent>, AgentError> {
         let mut agents = Vec::new();
 
-        for agent_type in AgentType::all() {
+        let agent_types: Vec<AgentType> = all_agent_definitions()
+            .into_iter()
+            .map(|definition| definition.metadata().agent_type.clone())
+            .collect();
+
+        for agent_type in agent_types {
             let agent = self.check_agent(&agent_type).await;
             agents.push(agent);
         }
@@ -31,32 +37,27 @@ impl AgentService {
 
     /// Check a specific agent's status
     async fn check_agent(&self, agent_type: &AgentType) -> CodingAgent {
-        CodingAgent::new(agent_type.clone())
+        let definition = agent_definition(agent_type);
+        let is_installed = definition.is_installed();
+        let mut agent = CodingAgent::new(agent_type.clone());
+
+        agent.status = if is_installed {
+            AgentStatus::Installed
+        } else {
+            AgentStatus::NotInstalled
+        };
+        agent.version = if is_installed {
+            definition.get_version()
+        } else {
+            None
+        };
+
+        agent
     }
 
     /// Get version information for an agent (synchronous)
     fn get_version_sync(&self, agent_type: &AgentType) -> Option<String> {
-        let command = agent_type.detection_command();
-
-        let output = Command::new(command).arg("--version").output().ok()?;
-
-        if output.status.success() {
-            let version = String::from_utf8_lossy(&output.stdout)
-                .trim()
-                .to_string();
-            // Extract version number from output
-            let version = version
-                .lines()
-                .next()
-                .unwrap_or(&version)
-                .trim()
-                .to_string();
-            if !version.is_empty() {
-                return Some(version);
-            }
-        }
-
-        None
+        agent_definition(agent_type).get_version()
     }
 
     /// Get version information for an agent
@@ -72,7 +73,8 @@ impl AgentService {
 
     /// Open the login flow for an agent
     pub async fn open_login(&self, agent_type: &AgentType) -> Result<(), AgentError> {
-        let command = agent_type.detection_command();
+        let metadata = agent_metadata(agent_type);
+        let command = metadata.binary;
 
         // Try to open the login command in a new terminal
         // This is platform-specific
@@ -124,15 +126,8 @@ impl AgentService {
 
     /// Get the config file path for an agent
     fn get_config_path(&self, agent_type: &AgentType) -> Option<PathBuf> {
-        let home_dir = dirs::home_dir()?;
-        
-        let config_path = match agent_type {
-            AgentType::ClaudeCode => home_dir.join(".claude").join("settings.json"),
-            AgentType::Codex => home_dir.join(".codex").join("config.toml"),
-            AgentType::GeminiCLI => home_dir.join(".gemini").join("settings.json"),
-        };
-        
-        Some(config_path)
+        let metadata = agent_metadata(agent_type);
+        Some(self.expand_tilde_path(metadata.default_config_file.to_string()))
     }
 
     fn resolve_config_path(

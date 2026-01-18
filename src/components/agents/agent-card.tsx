@@ -12,7 +12,6 @@ interface AgentCardProps {
   agent: CodingAgent;
   defaultConfigPath: string;
   isInstalled: boolean;
-  onUpdateConfigPath: (configPath: string) => Promise<void>;
   onInstall?: () => void;
 }
 
@@ -28,7 +27,6 @@ export function AgentCard({
   agent,
   defaultConfigPath,
   isInstalled,
-  onUpdateConfigPath,
   onInstall,
 }: AgentCardProps) {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
@@ -97,21 +95,18 @@ export function AgentCard({
                 <ClaudeCodeConfig
                   configPath={agent.configPath}
                   defaultConfigPath={defaultConfigPath}
-                  onUpdateConfigPath={onUpdateConfigPath}
                 />
               )}
               {agent.agentType === "Codex" && (
                 <CodexConfig
                   configPath={agent.configPath}
                   defaultConfigPath={defaultConfigPath}
-                  onUpdateConfigPath={onUpdateConfigPath}
                 />
               )}
               {agent.agentType === "GeminiCLI" && (
                 <GeminiCLIConfig
                   configPath={agent.configPath}
                   defaultConfigPath={defaultConfigPath}
-                  onUpdateConfigPath={onUpdateConfigPath}
                 />
               )}
             </>

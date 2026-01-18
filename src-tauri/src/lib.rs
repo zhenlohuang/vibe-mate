@@ -1,3 +1,4 @@
+mod agents;
 mod commands;
 mod models;
 mod services;
@@ -91,8 +92,6 @@ pub fn run() {
             // Config commands
             commands::get_config,
             commands::update_config,
-            commands::get_agents_config,
-            commands::update_agents_config,
             commands::test_latency,
             // System commands
             commands::proxy_status,

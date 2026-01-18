@@ -1,5 +1,3 @@
-import type { AgentType } from "./agent";
-
 export type Theme = "Dark" | "Light" | "System";
 
 export interface AppConfig {
@@ -21,15 +19,6 @@ export interface UpdateAppConfigInput {
   appPort?: number;
   theme?: Theme;
   language?: string;
-}
-
-export interface AgentConfigItem {
-  type: AgentType;
-  configFile?: string | null;
-}
-
-export interface UpdateAgentsConfigInput {
-  agents?: AgentConfigItem[];
 }
 
 export interface LatencyResult {

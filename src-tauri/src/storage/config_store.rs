@@ -93,7 +93,6 @@ mod tests {
         store.init().await.unwrap();
         
         let config = store.get_config().await;
-        assert!(config.agents.is_empty());
         assert!(config.providers.is_empty());
         assert!(config.routing_rules.is_empty());
     }

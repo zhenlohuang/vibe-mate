@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::agents::agent_metadata;
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum AgentType {
     ClaudeCode,
@@ -14,22 +16,6 @@ impl AgentType {
             AgentType::Codex,
             AgentType::GeminiCLI,
         ]
-    }
-
-    pub fn display_name(&self) -> &'static str {
-        match self {
-            AgentType::ClaudeCode => "Claude Code",
-            AgentType::Codex => "Codex",
-            AgentType::GeminiCLI => "Gemini CLI",
-        }
-    }
-
-    pub fn detection_command(&self) -> &'static str {
-        match self {
-            AgentType::ClaudeCode => "claude",
-            AgentType::Codex => "codex",
-            AgentType::GeminiCLI => "gemini",
-        }
     }
 }
 
@@ -61,14 +47,15 @@ pub struct CodingAgent {
 
 impl CodingAgent {
     pub fn new(agent_type: AgentType) -> Self {
+        let metadata = agent_metadata(&agent_type);
         Self {
-            name: agent_type.display_name().to_string(),
+            name: metadata.name.to_string(),
             agent_type,
             version: None,
             status: AgentStatus::NotInstalled,
-            executable_path: None,
-            config_path: None,
-            auth_path: None,
+            executable_path: Some(metadata.binary.to_string()),
+            config_path: Some(metadata.default_config_file.to_string()),
+            auth_path: Some(metadata.default_auth_file.to_string()),
         }
     }
 }
