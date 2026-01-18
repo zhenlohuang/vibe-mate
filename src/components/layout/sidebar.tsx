@@ -59,7 +59,7 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-[180px] border-r border-border bg-background flex flex-col">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-[200px] border-r border-border bg-background flex flex-col">
       {/* Header with Logo */}
       <div className="flex h-14 items-center gap-3 px-3 border-b border-border">
         {/* Circular logo with gradient border */}
@@ -109,10 +109,7 @@ export function Sidebar() {
 
       {/* Status Indicator */}
       <div className="border-t border-border px-3 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">
-            Status:
-          </span>
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-1.5">
             <span
               className={cn(
@@ -129,6 +126,9 @@ export function Sidebar() {
               {proxyStatus.isRunning ? "Online" : "Offline"}
             </span>
           </div>
+          <span className="text-xs font-mono text-muted-foreground">
+            :{proxyStatus.port}
+          </span>
         </div>
       </div>
     </aside>
