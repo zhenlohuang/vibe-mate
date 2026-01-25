@@ -21,14 +21,14 @@ import type {
 export function RouterPage() {
   const { rules, isLoading, createRule, updateRule, deleteRule, reorderRules } =
     useRoutingRules();
-  const { providers, defaultProvider } = useProviders();
+  const { providers } = useProviders();
   const { toast } = useToast();
   const [addingRule, setAddingRule] = useState<{
     apiGroup: ApiGroup;
     ruleType: RuleType;
   } | null>(null);
 
-  const defaultProviderId = (defaultProvider || providers[0])?.id || "";
+  const defaultProviderId = providers[0]?.id || "";
 
   const openaiPathPattern = "/api/openai/*";
   const anthropicPathPattern = "/api/anthropic/*";
@@ -153,7 +153,7 @@ export function RouterPage() {
   ]);
 
   const handleStartAddRule = (apiGroup: ApiGroup, ruleType: RuleType) => {
-    const targetProvider = defaultProvider || providers[0];
+    const targetProvider = providers[0];
     if (!targetProvider) {
       toast({
         title: "No Provider Available",

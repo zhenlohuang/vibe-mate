@@ -17,7 +17,6 @@ export interface Provider {
   apiKey?: string;
   authPath?: string;
   authEmail?: string;
-  isDefault: boolean;
   status: ProviderStatus;
   createdAt: string;
   updatedAt: string;
@@ -57,4 +56,12 @@ export interface AgentQuota {
   sessionResetAt?: number | null;
   weekUsedPercent: number;
   weekResetAt?: number | null;
+  entries?: AgentQuotaEntry[] | null;
+  note?: string | null;
+}
+
+export interface AgentQuotaEntry {
+  label: string;
+  usedPercent: number;
+  resetAt?: number | null;
 }

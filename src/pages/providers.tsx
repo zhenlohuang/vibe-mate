@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, RefreshCw } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import {
   ProviderCard,
@@ -19,6 +19,7 @@ import type {
 } from "@/types";
 import { containerVariants, itemVariants } from "@/lib/animations";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 export function ProvidersPage() {
   const {
@@ -27,7 +28,6 @@ export function ProvidersPage() {
     createProvider,
     updateProvider,
     deleteProvider,
-    setDefaultProvider,
     testConnection,
     refetch,
   } = useProviders();
@@ -39,6 +39,8 @@ export function ProvidersPage() {
   const [editingProvider, setEditingProvider] = useState<
     Provider | undefined
   >();
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Get existing agent types to prevent duplicates
   const existingAgentTypes = useMemo(
@@ -124,20 +126,13 @@ export function ProvidersPage() {
     }
   };
 
-  const handleSetDefault = async (id: string) => {
-    const provider = providers.find((p) => p.id === id);
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
     try {
-      await setDefaultProvider(id);
-      toast({
-        title: "Default Provider Set",
-        description: `${provider?.name} is now the default provider.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: String(error),
-        variant: "destructive",
-      });
+      await refetch();
+      setRefreshToken((prev) => prev + 1);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -191,18 +186,32 @@ export function ProvidersPage() {
       description="Configure API keys and proxy settings for your autonomous coding agents."
     >
       {/* Category Toggle */}
-      <div className="mb-6 flex">
-        <div className="ml-auto">
-          <Tabs
-            value={category}
-            onValueChange={(v) => setCategory(v as ProviderCategory)}
+      <div className="mb-6 flex items-center justify-between gap-4">
+        <Tabs
+          value={category}
+          onValueChange={(v) => setCategory(v as ProviderCategory)}
+        >
+          <TabsList>
+            <TabsTrigger value="Model">Model</TabsTrigger>
+            <TabsTrigger value="Agent">Agent</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        {category === "Agent" ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-8 gap-2 px-3 text-[10px] uppercase tracking-wider"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
           >
-            <TabsList>
-              <TabsTrigger value="Model">Model</TabsTrigger>
-              <TabsTrigger value="Agent">Agent</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
+            {isRefreshing ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            Refresh All
+          </Button>
+        ) : null}
       </div>
 
       {/* Provider Grid */}
@@ -218,11 +227,12 @@ export function ProvidersPage() {
               {provider.category === "Agent" ? (
                 <AgentCard
                   provider={provider}
+                  refreshToken={refreshToken}
+                  onDelete={handleDelete}
                 />
               ) : (
                 <ProviderCard
                   provider={provider}
-                  onSetDefault={handleSetDefault}
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onTestConnection={handleTestConnection}

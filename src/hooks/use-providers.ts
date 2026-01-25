@@ -10,7 +10,6 @@ export function useProviders() {
     createProvider,
     updateProvider,
     deleteProvider,
-    setDefaultProvider,
     testConnection,
     authenticateAgentProvider,
     fetchAgentQuota,
@@ -20,17 +19,13 @@ export function useProviders() {
     fetchProviders();
   }, [fetchProviders]);
 
-  const defaultProvider = providers.find((p) => p.isDefault);
-
   return {
     providers,
-    defaultProvider,
     isLoading,
     error,
     createProvider,
     updateProvider,
     deleteProvider,
-    setDefaultProvider,
     testConnection,
     authenticateAgentProvider,
     fetchAgentQuota,

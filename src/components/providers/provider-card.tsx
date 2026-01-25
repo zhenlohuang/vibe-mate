@@ -7,26 +7,18 @@ import { ProviderLogo } from "./provider-logo";
 
 interface ProviderCardProps {
   provider: Provider;
-  onSetDefault: (id: string) => void;
   onEdit: (provider: Provider) => void;
   onDelete: (id: string) => void;
   onTestConnection: (id: string) => void;
 }
 
-function getStatusConfig(status: Provider["status"], isDefault: boolean) {
-  if (isDefault) {
-    return {
-      label: "ACTIVE",
-      className: "bg-success/20 text-success",
-      dotClassName: "bg-success",
-    };
-  }
+function getStatusConfig(status: Provider["status"]) {
   switch (status) {
     case "Connected":
       return {
-        label: "STANDBY",
-        className: "bg-warning/20 text-warning",
-        dotClassName: "bg-warning",
+        label: "ACTIVE",
+        className: "bg-success/20 text-success",
+        dotClassName: "bg-success",
       };
     case "Disconnected":
       return {
@@ -52,8 +44,9 @@ function getStatusConfig(status: Provider["status"], isDefault: boolean) {
 export function ProviderCard({
   provider,
   onEdit,
+  onTestConnection,
 }: ProviderCardProps) {
-  const statusConfig = getStatusConfig(provider.status, provider.isDefault);
+  const statusConfig = getStatusConfig(provider.status);
 
   return (
     <motion.div
@@ -62,13 +55,9 @@ export function ProviderCard({
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2 }}
+      className="h-full"
     >
-      <Card
-        className={cn(
-          "provider-card relative overflow-hidden",
-          provider.isDefault && "ring-1 ring-primary/50"
-        )}
-      >
+      <Card className={cn("provider-card relative flex h-full flex-col overflow-hidden")}>
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -87,11 +76,19 @@ export function ProviderCard({
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-3">
+        <CardContent className="flex flex-1 flex-col space-y-3">
           {/* Endpoint */}
           <div className="space-y-1">
-            <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-              Endpoint
+            <div className="flex items-center justify-between text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span>Endpoint</span>
+              <button
+                type="button"
+                onClick={() => onTestConnection(provider.id)}
+                className="text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                aria-label={`Refresh ${provider.name}`}
+              >
+                Refresh
+              </button>
             </div>
             <div className="rounded-md bg-secondary/50 px-2 py-1.5 font-mono text-[11px] text-foreground/80 truncate">
               {provider.apiBaseUrl || "Not configured"}
@@ -109,7 +106,7 @@ export function ProviderCard({
           </div>
 
           {/* Settings Button */}
-          <div className="flex items-center justify-end pt-1">
+          <div className="mt-auto flex items-center justify-end pt-1">
             <button
               onClick={() => onEdit(provider)}
               className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"

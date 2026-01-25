@@ -20,7 +20,6 @@ interface ProviderState {
   createProvider: (input: CreateProviderInput) => Promise<Provider>;
   updateProvider: (id: string, input: UpdateProviderInput) => Promise<Provider>;
   deleteProvider: (id: string) => Promise<void>;
-  setDefaultProvider: (id: string) => Promise<void>;
   testConnection: (id: string) => Promise<{ isConnected: boolean; latencyMs?: number; error?: string }>;
   authenticateAgentProvider: (id: string) => Promise<Provider>;
   fetchAgentQuota: (id: string) => Promise<AgentQuota>;
@@ -75,21 +74,6 @@ export const useProviderStore = create<ProviderState>((set) => ({
       }));
       // Refresh routing rules since backend removes rules referencing deleted provider
       useRouterStore.getState().fetchRules();
-    } catch (error) {
-      set({ error: String(error) });
-      throw error;
-    }
-  },
-
-  setDefaultProvider: async (id: string) => {
-    try {
-      await invoke("set_default_provider", { id });
-      set((state) => ({
-        providers: state.providers.map((p) => ({
-          ...p,
-          isDefault: p.id === id,
-        })),
-      }));
     } catch (error) {
       set({ error: String(error) });
       throw error;
