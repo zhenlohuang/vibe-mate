@@ -1,14 +1,17 @@
 mod claude_code;
 mod codex;
 mod gemini_cli;
+mod antigravity;
+pub(crate) mod auth;
 
 use std::process::Command;
 
-use crate::models::AgentType;
+use crate::models::{AgentProviderType, AgentQuota, AgentType, Provider};
 
 pub use claude_code::ClaudeCodeAgent;
 pub use codex::CodexAgent;
 pub use gemini_cli::GeminiCliAgent;
+pub use auth::{AgentAuthContext, AgentAuthError, AuthFlowStart};
 
 #[derive(Debug, Clone)]
 pub struct AgentMetadata {
@@ -73,4 +76,53 @@ pub fn agent_definition(agent_type: &AgentType) -> &'static dyn CodingAgentDefin
 
 pub fn agent_metadata(agent_type: &AgentType) -> &'static AgentMetadata {
     agent_definition(agent_type).metadata()
+}
+
+pub fn start_agent_auth_flow(
+    agent_type: &AgentProviderType,
+    state: &str,
+) -> Result<AuthFlowStart, AgentAuthError> {
+    match agent_type {
+        AgentProviderType::Codex => codex::start_auth_flow(state),
+        AgentProviderType::ClaudeCode => claude_code::start_auth_flow(state),
+        AgentProviderType::GeminiCli => gemini_cli::start_auth_flow(state),
+        AgentProviderType::Antigravity => antigravity::start_auth_flow(state),
+    }
+}
+
+pub async fn complete_agent_auth(
+    ctx: &AgentAuthContext,
+    provider_id: &str,
+    agent_type: &AgentProviderType,
+    state: &str,
+    code: &str,
+    code_verifier: &str,
+) -> Result<(), AgentAuthError> {
+    match agent_type {
+        AgentProviderType::Codex => {
+            codex::complete_auth(ctx, provider_id, state, code, code_verifier).await
+        }
+        AgentProviderType::ClaudeCode => {
+            claude_code::complete_auth(ctx, provider_id, state, code, code_verifier).await
+        }
+        AgentProviderType::GeminiCli => {
+            gemini_cli::complete_auth(ctx, provider_id, state, code, code_verifier).await
+        }
+        AgentProviderType::Antigravity => {
+            antigravity::complete_auth(ctx, provider_id, state, code, code_verifier).await
+        }
+    }
+}
+
+pub async fn get_agent_quota(
+    ctx: &AgentAuthContext,
+    provider: &Provider,
+    agent_type: &AgentProviderType,
+) -> Result<AgentQuota, AgentAuthError> {
+    match agent_type {
+        AgentProviderType::Codex => codex::get_quota(ctx, provider).await,
+        AgentProviderType::ClaudeCode => claude_code::get_quota(ctx, provider).await,
+        AgentProviderType::GeminiCli => gemini_cli::get_quota(ctx, provider).await,
+        AgentProviderType::Antigravity => antigravity::get_quota(ctx, provider).await,
+    }
 }
