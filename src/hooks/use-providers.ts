@@ -12,6 +12,8 @@ export function useProviders() {
     deleteProvider,
     setDefaultProvider,
     testConnection,
+    authenticateAgentProvider,
+    fetchAgentQuota,
   } = useProviderStore();
 
   useEffect(() => {
@@ -30,7 +32,8 @@ export function useProviders() {
     deleteProvider,
     setDefaultProvider,
     testConnection,
+    authenticateAgentProvider,
+    fetchAgentQuota,
     refetch: fetchProviders,
   };
 }
-

@@ -16,6 +16,7 @@ export interface Provider {
   apiBaseUrl?: string;
   apiKey?: string;
   authPath?: string;
+  authEmail?: string;
   isDefault: boolean;
   status: ProviderStatus;
   createdAt: string;
@@ -42,4 +43,18 @@ export interface ConnectionStatus {
   isConnected: boolean;
   latencyMs?: number;
   error?: string;
+}
+
+export interface AgentAuthStart {
+  flowId: string;
+  authUrl: string;
+}
+
+export interface AgentQuota {
+  planType?: string | null;
+  limitReached?: boolean | null;
+  sessionUsedPercent: number;
+  sessionResetAt?: number | null;
+  weekUsedPercent: number;
+  weekResetAt?: number | null;
 }

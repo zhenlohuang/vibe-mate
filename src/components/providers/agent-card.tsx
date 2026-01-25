@@ -1,46 +1,16 @@
 import { motion } from "motion/react";
-import { Settings2, LogIn } from "lucide-react";
-import type { Provider } from "@/types";
+import { useEffect, useMemo, useState } from "react";
+import { LogIn, RefreshCw, Loader2 } from "lucide-react";
+import type { Provider, AgentQuota } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProviderLogo } from "./provider-logo";
+import { useProviderStore } from "@/stores/provider-store";
+import { useToast } from "@/hooks/use-toast";
 
 interface AgentCardProps {
   provider: Provider;
-  onSetDefault: (id: string) => void;
-  onEdit: (provider: Provider) => void;
-  onDelete: (id: string) => void;
-  onLogin?: (id: string) => void;
-}
-
-interface QuotaInfo {
-  currentSession: { used: number; total: number };
-  currentWeek: { used: number; total: number };
-}
-
-// Mock quota data - this will be replaced with real data later
-function getMockQuota(providerName: string): QuotaInfo {
-  const quotas: Record<string, QuotaInfo> = {
-    "Claude Code": {
-      currentSession: { used: 1.2, total: 4 },
-      currentWeek: { used: 12.5, total: 20 },
-    },
-    Codex: {
-      currentSession: { used: 0.8, total: 3 },
-      currentWeek: { used: 8.3, total: 15 },
-    },
-    "Gemini CLI": {
-      currentSession: { used: 2.1, total: 5 },
-      currentWeek: { used: 15.7, total: 25 },
-    },
-  };
-  return (
-    quotas[providerName] || {
-      currentSession: { used: 0, total: 4 },
-      currentWeek: { used: 0, total: 20 },
-    }
-  );
 }
 
 function getStatusConfig(status: Provider["status"], isDefault: boolean) {
@@ -79,13 +49,90 @@ function getStatusConfig(status: Provider["status"], isDefault: boolean) {
   }
 }
 
-export function AgentCard({ provider, onEdit, onLogin }: AgentCardProps) {
-  const statusConfig = getStatusConfig(provider.status, provider.isDefault);
-  const quota = getMockQuota(provider.name);
+export function AgentCard({ provider }: AgentCardProps) {
   const isLoggedIn = provider.authPath !== null && provider.authPath !== undefined;
+  const statusConfig = isLoggedIn
+    ? {
+        label: "ACTIVE",
+        className: "bg-success/20 text-success",
+        dotClassName: "bg-success",
+      }
+    : getStatusConfig(provider.status, provider.isDefault);
+  const isAuthSupported = provider.type === "Codex";
+  const authenticateAgentProvider = useProviderStore(
+    (state) => state.authenticateAgentProvider
+  );
+  const fetchAgentQuota = useProviderStore((state) => state.fetchAgentQuota);
+  const { toast } = useToast();
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [isQuotaLoading, setIsQuotaLoading] = useState(false);
+  const [quota, setQuota] = useState<AgentQuota | null>(null);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
+  const quotaLabels =
+    provider.type === "Codex"
+      ? { session: "5h limit", week: "Weekly limit" }
+      : { session: "Current Session", week: "Current Week" };
 
-  const sessionPercentage = (quota.currentSession.used / quota.currentSession.total) * 100;
-  const weekPercentage = (quota.currentWeek.used / quota.currentWeek.total) * 100;
+  const sessionLeftPercentage = useMemo(() => {
+    const used = quota?.sessionUsedPercent ?? 0;
+    return Math.min(100, Math.max(0, 100 - used));
+  }, [quota?.sessionUsedPercent]);
+  const weekLeftPercentage = useMemo(() => {
+    const used = quota?.weekUsedPercent ?? 0;
+    return Math.min(100, Math.max(0, 100 - used));
+  }, [quota?.weekUsedPercent]);
+
+  const formatResetAt = (timestamp?: number | null) => {
+    if (!timestamp) return "—";
+    return new Date(timestamp * 1000).toLocaleString();
+  };
+
+  const loadQuota = async () => {
+    setIsQuotaLoading(true);
+    setQuotaError(null);
+    try {
+      const data = await fetchAgentQuota(provider.id);
+      setQuota(data);
+    } catch (error) {
+      setQuotaError(String(error));
+    } finally {
+      setIsQuotaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthSupported) {
+      setQuota(null);
+      setQuotaError("Usage is not available for this agent yet.");
+      return;
+    }
+    if (isLoggedIn) {
+      loadQuota();
+    } else {
+      setQuota(null);
+      setQuotaError(null);
+    }
+  }, [isLoggedIn, isAuthSupported, provider.id, provider.authPath]);
+
+  const handleLogin = async () => {
+    setIsAuthLoading(true);
+    try {
+      await authenticateAgentProvider(provider.id);
+      toast({
+        title: "Authentication complete",
+        description: `${provider.name} is now connected.`,
+      });
+      await loadQuota();
+    } catch (error) {
+      toast({
+        title: "Authentication failed",
+        description: String(error),
+        variant: "destructive",
+      });
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
 
   return (
     <motion.div
@@ -126,67 +173,103 @@ export function AgentCard({ provider, onEdit, onLogin }: AgentCardProps) {
                 size="sm"
                 variant="outline"
                 className="w-full"
-                onClick={() => onLogin?.(provider.id)}
+                onClick={handleLogin}
+                disabled={!isAuthSupported || isAuthLoading}
               >
-                <LogIn className="h-3.5 w-3.5 mr-2" />
-                Login
+                {isAuthLoading ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : isAuthSupported ? (
+                  <>
+                    <LogIn className="h-3.5 w-3.5 mr-2" />
+                    Login
+                  </>
+                ) : (
+                  "Not supported"
+                )}
               </Button>
             </div>
           ) : (
             <>
-              {/* Current Session */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="font-medium uppercase tracking-wider text-muted-foreground">
-                    Current Session
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                <div className="flex flex-col gap-1">
+                  <span className="uppercase tracking-wider">
+                    {quota?.planType ? `${quota.planType} plan` : "Plan unknown"}
                   </span>
-                  <span className="font-mono text-foreground/80">
-                    {quota.currentSession.used}M / {quota.currentSession.total}M
-                  </span>
+                  {provider.authEmail ? (
+                    <span className="font-mono text-[9px] text-muted-foreground/80">
+                      {provider.authEmail}
+                    </span>
+                  ) : null}
                 </div>
-                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{ width: `${sessionPercentage}%` }}
-                  />
-                </div>
-                <div className="text-[9px] text-muted-foreground">
-                  {sessionPercentage.toFixed(1)}% used
-                </div>
+                <button
+                  type="button"
+                  onClick={loadQuota}
+                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] uppercase tracking-wider transition-colors hover:bg-secondary"
+                  disabled={isQuotaLoading}
+                >
+                  {isQuotaLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3 w-3" />
+                  )}
+                  Refresh
+                </button>
               </div>
 
-              {/* Current Week */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-[10px]">
-                  <span className="font-medium uppercase tracking-wider text-muted-foreground">
-                    Current Week
-                  </span>
-                  <span className="font-mono text-foreground/80">
-                    {quota.currentWeek.used}M / {quota.currentWeek.total}M
-                  </span>
+              {quotaError ? (
+                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-2 text-[10px] text-destructive">
+                  {quotaError}
                 </div>
-                <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{ width: `${weekPercentage}%` }}
-                  />
-                </div>
-                <div className="text-[9px] text-muted-foreground">
-                  {weekPercentage.toFixed(1)}% used
-                </div>
-              </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-medium uppercase tracking-wider text-muted-foreground">
+                        {quotaLabels.session}
+                      </span>
+                      <span className="font-mono text-foreground/80">
+                        {sessionLeftPercentage.toFixed(1)}% left
+                      </span>
+                    </div>
+                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
+                      <div
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${sessionLeftPercentage}%` }}
+                      />
+                    </div>
+                    <div className="text-[9px] text-muted-foreground">
+                      Resets: {formatResetAt(quota?.sessionResetAt)}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="font-medium uppercase tracking-wider text-muted-foreground">
+                        {quotaLabels.week}
+                      </span>
+                      <span className="font-mono text-foreground/80">
+                        {weekLeftPercentage.toFixed(1)}% left
+                      </span>
+                    </div>
+                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
+                      <div
+                        className="h-full bg-primary transition-all"
+                        style={{ width: `${weekLeftPercentage}%` }}
+                      />
+                    </div>
+                    <div className="text-[9px] text-muted-foreground">
+                      Resets: {formatResetAt(quota?.weekResetAt)}
+                    </div>
+                  </div>
+                </>
+              )}
             </>
           )}
 
-          {/* Settings Button */}
-          <div className="flex items-center justify-end pt-1">
-            <button
-              onClick={() => onEdit(provider)}
-              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-            >
-              <Settings2 className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <div className="pt-1" />
         </CardContent>
       </Card>
     </motion.div>

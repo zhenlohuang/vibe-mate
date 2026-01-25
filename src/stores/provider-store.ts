@@ -1,6 +1,13 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
-import type { Provider, CreateProviderInput, UpdateProviderInput } from "@/types";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import type {
+  Provider,
+  CreateProviderInput,
+  UpdateProviderInput,
+  AgentAuthStart,
+  AgentQuota,
+} from "@/types";
 import { useRouterStore } from "./router-store";
 
 interface ProviderState {
@@ -15,6 +22,8 @@ interface ProviderState {
   deleteProvider: (id: string) => Promise<void>;
   setDefaultProvider: (id: string) => Promise<void>;
   testConnection: (id: string) => Promise<{ isConnected: boolean; latencyMs?: number; error?: string }>;
+  authenticateAgentProvider: (id: string) => Promise<Provider>;
+  fetchAgentQuota: (id: string) => Promise<AgentQuota>;
 }
 
 export const useProviderStore = create<ProviderState>((set) => ({
@@ -106,5 +115,32 @@ export const useProviderStore = create<ProviderState>((set) => ({
       throw error;
     }
   },
-}));
 
+  authenticateAgentProvider: async (id: string) => {
+    try {
+      const start = await invoke<AgentAuthStart>("start_agent_auth", { providerId: id });
+      try {
+        await openUrl(start.authUrl);
+      } catch (error) {
+        console.warn("Failed to open browser for auth:", error);
+      }
+      const provider = await invoke<Provider>("complete_agent_auth", { flowId: start.flowId });
+      set((state) => ({
+        providers: state.providers.map((p) => (p.id === id ? provider : p)),
+      }));
+      return provider;
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+
+  fetchAgentQuota: async (id: string) => {
+    try {
+      return await invoke<AgentQuota>("get_agent_quota", { providerId: id });
+    } catch (error) {
+      set({ error: String(error) });
+      throw error;
+    }
+  },
+}));

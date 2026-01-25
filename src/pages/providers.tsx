@@ -218,9 +218,6 @@ export function ProvidersPage() {
               {provider.category === "Agent" ? (
                 <AgentCard
                   provider={provider}
-                  onSetDefault={handleSetDefault}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
                 />
               ) : (
                 <ProviderCard

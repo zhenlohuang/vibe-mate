@@ -6,7 +6,9 @@ mod storage;
 
 use std::sync::Arc;
 use storage::ConfigStore;
-use services::{AgentService, ConfigService, ProviderService, ProxyServer, RouterService};
+use services::{
+    AgentAuthService, AgentService, ConfigService, ProviderService, ProxyServer, RouterService,
+};
 use tauri::Manager;
 
 /// Get config directory path (~/.vibemate/)
@@ -44,6 +46,7 @@ pub fn run() {
             let router_service = Arc::new(RouterService::new(store.clone()));
             let agent_service = Arc::new(AgentService::new());
             let config_service = Arc::new(ConfigService::new(store.clone()));
+            let agent_auth_service = Arc::new(AgentAuthService::new(store.clone()));
             
             // Create the proxy server with access to the config store
             let proxy_server = Arc::new(ProxyServer::new(store.clone()));
@@ -54,6 +57,7 @@ pub fn run() {
             app.manage(router_service);
             app.manage(agent_service);
             app.manage(config_service);
+            app.manage(agent_auth_service);
             app.manage(proxy_server.clone());
 
             // Auto-start proxy server on port 12345
@@ -76,6 +80,9 @@ pub fn run() {
             commands::delete_provider,
             commands::set_default_provider,
             commands::test_connection,
+            commands::start_agent_auth,
+            commands::complete_agent_auth,
+            commands::get_agent_quota,
             // Router commands
             commands::list_rules,
             commands::create_rule,
