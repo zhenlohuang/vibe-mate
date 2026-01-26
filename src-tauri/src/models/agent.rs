@@ -9,15 +9,6 @@ pub enum AgentType {
     GeminiCLI,
 }
 
-impl AgentType {
-    pub fn all() -> Vec<AgentType> {
-        vec![
-            AgentType::ClaudeCode,
-            AgentType::Codex,
-            AgentType::GeminiCLI,
-        ]
-    }
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum AgentStatus {

@@ -51,7 +51,7 @@ export function QuotaPage() {
       providers: groupedProviders.get(agent.value) ?? [],
     })).filter((group) => group.providers.length > 0);
 
-    const knownTypes = new Set(AGENT_TYPES.map((agent) => agent.value));
+    const knownTypes: Set<string> = new Set(AGENT_TYPES.map((agent) => agent.value));
     groupedProviders.forEach((providers, type) => {
       if (!knownTypes.has(type)) {
         groups.push({ type, label: type, providers });

@@ -22,8 +22,6 @@ pub enum AgentAuthError {
     ProviderNotFound(String),
     #[error("Provider is not an agent: {0}")]
     NotAgentProvider(String),
-    #[error("Agent provider not supported: {0}")]
-    UnsupportedAgentProvider(String),
     #[error("Auth flow already in progress")]
     FlowInProgress,
     #[error("Auth flow not found: {0}")]
