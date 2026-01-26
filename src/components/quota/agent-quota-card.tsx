@@ -1,6 +1,6 @@
 import { motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
-import { LogIn, Loader2 } from "lucide-react";
+import { LogIn, Loader2, RefreshCw } from "lucide-react";
 import type { Provider, AgentQuota, AgentQuotaEntry } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -96,10 +96,7 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
   const remainingEntryCount = Math.max(0, quotaEntries.length - entryDisplayLimit);
   const showExpandToggle =
     provider.type === "Antigravity" && hasEntries && (remainingEntryCount > 0 || isExpanded);
-  const entriesContainerClass = cn(
-    "space-y-3",
-    provider.type === "Antigravity" && "max-h-[150px] overflow-y-auto pr-1",
-  );
+  const entriesContainerClass = "space-y-3";
 
   const formatUsageText = (used: number) => `${used.toFixed(1)}% used`;
 
@@ -198,6 +195,16 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
                 <div className={cn("h-1 w-1 rounded-full", statusConfig.dotClassName)} />
                 {statusConfig.label}
               </div>
+              {isLoggedIn && isQuotaSupported ? (
+                <button
+                  type="button"
+                  onClick={loadQuota}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  aria-label={`Refresh ${provider.name}`}
+                >
+                  <RefreshCw className="h-3.5 w-3.5" />
+                </button>
+              ) : null}
             </div>
           </div>
         </CardHeader>
@@ -233,16 +240,6 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
                 <div className="flex flex-col gap-1">
                   <span className="uppercase tracking-wider">Authenticated</span>
                 </div>
-                {isLoggedIn && isQuotaSupported ? (
-                  <button
-                    type="button"
-                    onClick={loadQuota}
-                    className="text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={`Refresh ${provider.name}`}
-                  >
-                    Refresh
-                  </button>
-                ) : null}
               </div>
 
               {!isQuotaSupported ? (

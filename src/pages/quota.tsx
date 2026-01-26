@@ -8,6 +8,7 @@ import { AGENT_TYPES } from "@/lib/constants";
 import type { AgentProviderType, Provider } from "@/types";
 import { Button } from "@/components/ui/button";
 import { containerVariants, itemVariants } from "@/lib/animations";
+import { cn } from "@/lib/utils";
 
 interface QuotaGroup {
   type: AgentProviderType | string;
@@ -19,6 +20,7 @@ export function QuotaPage() {
   const { providers, isLoading, refetch } = useProviders();
   const [refreshToken, setRefreshToken] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeGroupType, setActiveGroupType] = useState<string | null>(null);
 
   const agentProviders = useMemo(
     () => providers.filter((provider) => provider.category === "Agent"),
@@ -53,6 +55,14 @@ export function QuotaPage() {
     return groups;
   }, [groupedProviders]);
 
+  const resolvedGroupType =
+    activeGroupType && orderedGroups.some((group) => group.type === activeGroupType)
+      ? activeGroupType
+      : orderedGroups[0]?.type ?? null;
+  const activeGroup = resolvedGroupType
+    ? orderedGroups.find((group) => group.type === resolvedGroupType) ?? null
+    : null;
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -81,14 +91,44 @@ export function QuotaPage() {
       title="Quota"
       description="Track agent usage limits grouped by provider type."
     >
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <div className="text-xs text-muted-foreground">
-          Login and monitor usage for each agent provider.
-        </div>
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        {orderedGroups.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[220px]">
+            {orderedGroups.map((group) => {
+              const isActive = group.type === resolvedGroupType;
+              return (
+                <button
+                  key={group.type}
+                  type="button"
+                  onClick={() => setActiveGroupType(group.type)}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
+                    isActive
+                      ? "border-primary/50 bg-primary/10 text-foreground"
+                      : "border-border/60 bg-card/50 text-muted-foreground hover:text-foreground",
+                  )}
+                  aria-pressed={isActive}
+                >
+                  <span className="truncate">{group.label}</span>
+                  <span
+                    className={cn(
+                      "flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
+                      isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground",
+                    )}
+                  >
+                    {group.providers.length}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex-1 min-w-[220px]" />
+        )}
         <Button
           size="sm"
           variant="secondary"
-          className="h-8 gap-2 px-3 text-[10px] uppercase tracking-wider"
+          className="ml-auto h-8 gap-2 px-3 text-[10px] uppercase tracking-wider"
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
@@ -106,34 +146,30 @@ export function QuotaPage() {
           No agent providers added yet. Add an agent in Providers to see quota.
         </div>
       ) : (
-        <div className="space-y-8">
-          {orderedGroups.map((group) => (
-            <section key={group.type} className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold">{group.label}</h2>
-                  <p className="text-[11px] text-muted-foreground">
-                    {group.providers.length} provider
-                    {group.providers.length === 1 ? "" : "s"}
-                  </p>
-                </div>
-              </div>
+        <div className="space-y-5">
+          {activeGroup ? (
+            <section className="space-y-3">
               <motion.div
+                key={resolvedGroupType ?? "empty"}
                 variants={containerVariants}
-                initial="hidden"
+                initial={false}
                 animate="show"
-                className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                className="grid gap-4 grid-cols-1"
               >
                 <AnimatePresence mode="popLayout">
-                  {group.providers.map((provider) => (
-                    <motion.div key={provider.id} variants={itemVariants} layout>
+                  {activeGroup.providers.map((provider) => (
+                    <motion.div key={provider.id} variants={itemVariants} layout initial={false}>
                       <AgentQuotaCard provider={provider} refreshToken={refreshToken} />
                     </motion.div>
                   ))}
                 </AnimatePresence>
               </motion.div>
             </section>
-          ))}
+          ) : (
+            <div className="rounded-lg border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center text-sm text-muted-foreground">
+              No providers in this group yet.
+            </div>
+          )}
         </div>
       )}
     </MainContent>
