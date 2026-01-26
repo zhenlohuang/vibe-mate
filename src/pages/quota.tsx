@@ -1,11 +1,11 @@
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import { AgentQuotaCard } from "@/components/quota";
 import { useProviders } from "@/hooks/use-providers";
 import { AGENT_TYPES } from "@/lib/constants";
-import type { AgentProviderType, Provider } from "@/types";
+import type { AgentProviderType, Provider, AgentQuota } from "@/types";
 import { Button } from "@/components/ui/button";
 import { containerVariants, itemVariants } from "@/lib/animations";
 import { cn } from "@/lib/utils";
@@ -17,8 +17,14 @@ interface QuotaGroup {
 }
 
 export function QuotaPage() {
-  const { providers, isLoading, refetch } = useProviders();
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { providers, isLoading, refetch, fetchAgentQuota } = useProviders();
+  const [hasRefreshedOnLoad, setHasRefreshedOnLoad] = useState(false);
+  const [quotaByProviderId, setQuotaByProviderId] = useState<Record<string, AgentQuota | null>>(
+    {},
+  );
+  const [quotaErrorByProviderId, setQuotaErrorByProviderId] = useState<Record<string, string | null>>(
+    {},
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeGroupType, setActiveGroupType] = useState<string | null>(null);
 
@@ -63,15 +69,41 @@ export function QuotaPage() {
     ? orderedGroups.find((group) => group.type === resolvedGroupType) ?? null
     : null;
 
+  const loadQuotaForProvider = useCallback(
+    async (providerId: string) => {
+      setQuotaErrorByProviderId((prev) => ({ ...prev, [providerId]: null }));
+      try {
+        const data = await fetchAgentQuota(providerId);
+        setQuotaByProviderId((prev) => ({ ...prev, [providerId]: data }));
+      } catch (error) {
+        setQuotaErrorByProviderId((prev) => ({ ...prev, [providerId]: String(error) }));
+      }
+    },
+    [fetchAgentQuota],
+  );
+
+  const refreshAllQuotas = useCallback(async () => {
+    const refreshable = agentProviders.filter(
+      (provider) => provider.status === "Connected" && provider.type !== "GeminiCli",
+    );
+    await Promise.all(refreshable.map((provider) => loadQuotaForProvider(provider.id)));
+  }, [agentProviders, loadQuotaForProvider]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
       await refetch();
-      setRefreshToken((prev) => prev + 1);
+      await refreshAllQuotas();
     } finally {
       setIsRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    if (isLoading || hasRefreshedOnLoad) return;
+    setHasRefreshedOnLoad(true);
+    void refreshAllQuotas();
+  }, [hasRefreshedOnLoad, isLoading, refreshAllQuotas]);
 
   if (isLoading) {
     return (
@@ -159,7 +191,12 @@ export function QuotaPage() {
                 <AnimatePresence mode="popLayout">
                   {activeGroup.providers.map((provider) => (
                     <motion.div key={provider.id} variants={itemVariants} layout initial={false}>
-                      <AgentQuotaCard provider={provider} refreshToken={refreshToken} />
+                      <AgentQuotaCard
+                        provider={provider}
+                        quota={quotaByProviderId[provider.id] ?? null}
+                        quotaError={quotaErrorByProviderId[provider.id] ?? null}
+                        onRefresh={loadQuotaForProvider}
+                      />
                     </motion.div>
                   ))}
                 </AnimatePresence>

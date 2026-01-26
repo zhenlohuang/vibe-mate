@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { LogIn, Loader2, RefreshCw } from "lucide-react";
 import type { Provider, AgentQuota, AgentQuotaEntry } from "@/types";
 import { cn } from "@/lib/utils";
@@ -11,7 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 
 interface AgentQuotaCardProps {
   provider: Provider;
-  refreshToken?: number;
+  quota?: AgentQuota | null;
+  quotaError?: string | null;
+  onRefresh?: (providerId: string) => Promise<void> | void;
 }
 
 function getStatusConfig(status: Provider["status"]) {
@@ -43,7 +45,12 @@ function getStatusConfig(status: Provider["status"]) {
   }
 }
 
-export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) {
+export function AgentQuotaCard({
+  provider,
+  quota,
+  quotaError,
+  onRefresh,
+}: AgentQuotaCardProps) {
   const isLoggedIn = provider.status === "Connected";
   const statusConfig = getStatusConfig(provider.status);
   const isAuthSupported = [
@@ -56,12 +63,12 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
   const authenticateAgentProvider = useProviderStore(
     (state) => state.authenticateAgentProvider,
   );
-  const fetchAgentQuota = useProviderStore((state) => state.fetchAgentQuota);
   const { toast } = useToast();
   const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [quota, setQuota] = useState<AgentQuota | null>(null);
-  const [quotaError, setQuotaError] = useState<string | null>(null);
   const [isExpanded, setIsExpanded] = useState(false);
+  const resolvedQuotaError = !isAuthSupported
+    ? "Usage is not available for this agent yet."
+    : quotaError ?? null;
   const quotaLabels = useMemo(() => {
     switch (provider.type) {
       case "Codex":
@@ -118,36 +125,10 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
     return date.toLocaleString();
   };
 
-  const loadQuota = async () => {
+  const handleRefresh = async () => {
     if (!isQuotaSupported) return;
-    setQuotaError(null);
-    try {
-      const data = await fetchAgentQuota(provider.id);
-      setQuota(data);
-    } catch (error) {
-      setQuotaError(String(error));
-    }
+    await onRefresh?.(provider.id);
   };
-
-  useEffect(() => {
-    if (!isAuthSupported) {
-      setQuota(null);
-      setQuotaError("Usage is not available for this agent yet.");
-      return;
-    }
-    if (!isQuotaSupported) {
-      setQuota(null);
-      setQuotaError(null);
-      return;
-    }
-    setIsExpanded(false);
-    if (isLoggedIn) {
-      loadQuota();
-    } else {
-      setQuota(null);
-      setQuotaError(null);
-    }
-  }, [isLoggedIn, isAuthSupported, provider.id, refreshToken]);
 
   const handleLogin = async () => {
     setIsAuthLoading(true);
@@ -157,7 +138,7 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
         title: "Authentication complete",
         description: `${provider.name} is now connected.`,
       });
-      await loadQuota();
+      await handleRefresh();
     } catch (error) {
       toast({
         title: "Authentication failed",
@@ -198,7 +179,7 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
               {isLoggedIn && isQuotaSupported ? (
                 <button
                   type="button"
-                  onClick={loadQuota}
+                  onClick={handleRefresh}
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
                   aria-label={`Refresh ${provider.name}`}
                 >
@@ -246,9 +227,9 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
                 <div className="rounded-md border border-border/60 bg-muted/40 px-2 py-2 text-[10px] text-muted-foreground">
                   Usage is not available for this agent yet.
                 </div>
-              ) : quotaError ? (
+              ) : resolvedQuotaError ? (
                 <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-2 text-[10px] text-destructive">
-                  {quotaError}
+                  {resolvedQuotaError}
                 </div>
               ) : hasEntries ? (
                 <>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Plus, Loader2 } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
@@ -27,7 +27,6 @@ export function ProvidersPage() {
     updateProvider,
     deleteProvider,
     testConnection,
-    refetch,
   } = useProviders();
   const { toast } = useToast();
 
@@ -41,7 +40,6 @@ export function ProvidersPage() {
     Provider | undefined
   >();
 
-  // Get existing agent types to prevent duplicates
   const existingAgentTypes = useMemo(
     () =>
       providers
@@ -49,11 +47,6 @@ export function ProvidersPage() {
         .map((p) => p.type as AgentProviderType),
     [providers],
   );
-
-  // Refetch providers when category changes
-  useEffect(() => {
-    refetch();
-  }, [category, refetch]);
 
   const filteredProviders = useMemo(
     () => providers.filter((p) => p.category === category),
@@ -229,7 +222,7 @@ export function ProvidersPage() {
       >
         <AnimatePresence mode="popLayout">
           {filteredProviders.map((provider) => (
-            <motion.div key={provider.id} variants={itemVariants} layout>
+            <motion.div key={provider.id} variants={itemVariants} layout initial={false}>
               <ProviderCard
                 provider={provider}
                 onEdit={provider.category === "Agent" ? handleAgentEdit : handleEdit}
