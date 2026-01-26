@@ -1,6 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "motion/react";
-import { Settings, Server, GitMerge, Bot, LayoutDashboard } from "lucide-react";
+import {
+  Settings,
+  Server,
+  GitMerge,
+  Bot,
+  LayoutDashboard,
+  Gauge,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
 
@@ -18,6 +25,12 @@ const menuItems: SidebarItem[] = [
     label: "Providers",
     icon: Server,
     href: "/providers",
+  },
+  {
+    id: "quota",
+    label: "Quota",
+    icon: Gauge,
+    href: "/quota",
   },
   { id: "router", label: "Routing Rules", icon: GitMerge, href: "/router" },
   { id: "agents", label: "Coding Agents", icon: Bot, href: "/agents" },

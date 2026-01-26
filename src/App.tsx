@@ -7,6 +7,7 @@ import { useProxyStatus } from "@/hooks/use-tauri";
 import {
   DashboardPage,
   ProvidersPage,
+  QuotaPage,
   RouterPage,
   AgentsPage,
   SettingsPage,
@@ -39,6 +40,7 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/providers" element={<ProvidersPage />} />
+              <Route path="/quota" element={<QuotaPage />} />
               <Route path="/router" element={<RouterPage />} />
               <Route path="/agents" element={<AgentsPage />} />
               <Route path="/settings" element={<SettingsPage />} />

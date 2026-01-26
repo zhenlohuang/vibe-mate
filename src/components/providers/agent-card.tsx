@@ -1,27 +1,22 @@
 import { motion } from "motion/react";
-import { useEffect, useMemo, useState } from "react";
-import { LogIn, Loader2, Trash2 } from "lucide-react";
-import type { Provider, AgentQuota, AgentQuotaEntry } from "@/types";
+import { Settings2 } from "lucide-react";
+import type { Provider } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ProviderLogo } from "./provider-logo";
-import { useProviderStore } from "@/stores/provider-store";
-import { useToast } from "@/hooks/use-toast";
 
 interface AgentCardProps {
   provider: Provider;
-  refreshToken?: number;
-  onDelete: (id: string) => void;
+  onEdit: (provider: Provider) => void;
 }
 
 function getStatusConfig(status: Provider["status"]) {
   switch (status) {
     case "Connected":
       return {
-        label: "STANDBY",
-        className: "bg-warning/20 text-warning",
-        dotClassName: "bg-warning",
+        label: "ACTIVE",
+        className: "bg-success/20 text-success",
+        dotClassName: "bg-success",
       };
     case "Disconnected":
       return {
@@ -44,140 +39,15 @@ function getStatusConfig(status: Provider["status"]) {
   }
 }
 
-export function AgentCard({ provider, refreshToken, onDelete }: AgentCardProps) {
+export function AgentCard({ provider, onEdit }: AgentCardProps) {
   const isLoggedIn = provider.authPath !== null && provider.authPath !== undefined;
   const statusConfig = isLoggedIn
     ? {
-      label: "ACTIVE",
-      className: "bg-success/20 text-success",
-      dotClassName: "bg-success",
-    }
+        label: "ACTIVE",
+        className: "bg-success/20 text-success",
+        dotClassName: "bg-success",
+      }
     : getStatusConfig(provider.status);
-  const isAuthSupported = [
-    "Codex",
-    "ClaudeCode",
-    "GeminiCli",
-    "Antigravity",
-  ].includes(provider.type);
-  const isQuotaSupported = provider.type !== "GeminiCli";
-  const authenticateAgentProvider = useProviderStore(
-    (state) => state.authenticateAgentProvider
-  );
-  const fetchAgentQuota = useProviderStore((state) => state.fetchAgentQuota);
-  const { toast } = useToast();
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
-  const [quota, setQuota] = useState<AgentQuota | null>(null);
-  const [quotaError, setQuotaError] = useState<string | null>(null);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const quotaLabels = useMemo(() => {
-    switch (provider.type) {
-      case "Codex":
-        return { session: "5h limit", week: "Weekly limit" };
-      case "ClaudeCode":
-        return { session: "Current session", week: "Current week" };
-      case "Antigravity":
-        return { session: "Primary model", week: "Secondary model" };
-      default:
-        return { session: "Current Session", week: "Current Week" };
-    }
-  }, [provider.type]);
-  const sessionUsedPercentage = useMemo(() => {
-    const used = quota?.sessionUsedPercent ?? 0;
-    return Math.min(100, Math.max(0, used));
-  }, [quota?.sessionUsedPercent]);
-  const weekUsedPercentage = useMemo(() => {
-    const used = quota?.weekUsedPercent ?? 0;
-    return Math.min(100, Math.max(0, used));
-  }, [quota?.weekUsedPercent]);
-  const quotaEntries = useMemo<AgentQuotaEntry[]>(
-    () => quota?.entries?.filter(Boolean) ?? [],
-    [quota?.entries]
-  );
-  const hasEntries = provider.type === "Antigravity" && quotaEntries.length > 0;
-  const resetPrefix = provider.type === "ClaudeCode" ? "Resets" : "Resets:";
-  const entryDisplayLimit = provider.type === "Antigravity" ? 2 : quotaEntries.length;
-  const displayedEntries = useMemo(
-    () => (isExpanded ? quotaEntries : quotaEntries.slice(0, entryDisplayLimit)),
-    [quotaEntries, entryDisplayLimit, isExpanded]
-  );
-  const remainingEntryCount = Math.max(0, quotaEntries.length - entryDisplayLimit);
-  const showExpandToggle =
-    provider.type === "Antigravity" && hasEntries && (remainingEntryCount > 0 || isExpanded);
-  const entriesContainerClass = cn(
-    "space-y-3",
-    provider.type === "Antigravity" && "max-h-[150px] overflow-y-auto pr-1"
-  );
-
-  const formatUsageText = (used: number) => `${used.toFixed(1)}% used`;
-
-  const formatResetAt = (timestamp?: number | null) => {
-    if (!timestamp) return "—";
-    const date = new Date(timestamp * 1000);
-    if (provider.type === "ClaudeCode") {
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const now = new Date();
-      const sameDay = date.toDateString() === now.toDateString();
-      const formatter = new Intl.DateTimeFormat(
-        undefined,
-        sameDay
-          ? { hour: "numeric", minute: "2-digit" }
-          : { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }
-      );
-      return `${formatter.format(date)} (${timeZone})`;
-    }
-    return date.toLocaleString();
-  };
-
-  const loadQuota = async () => {
-    if (!isQuotaSupported) return;
-    setQuotaError(null);
-    try {
-      const data = await fetchAgentQuota(provider.id);
-      setQuota(data);
-    } catch (error) {
-      setQuotaError(String(error));
-    }
-  };
-
-  useEffect(() => {
-    if (!isAuthSupported) {
-      setQuota(null);
-      setQuotaError("Usage is not available for this agent yet.");
-      return;
-    }
-    if (!isQuotaSupported) {
-      setQuota(null);
-      setQuotaError(null);
-      return;
-    }
-    setIsExpanded(false);
-    if (isLoggedIn) {
-      loadQuota();
-    } else {
-      setQuota(null);
-      setQuotaError(null);
-    }
-  }, [isLoggedIn, isAuthSupported, provider.id, provider.authPath, refreshToken]);
-
-  const handleLogin = async () => {
-    setIsAuthLoading(true);
-    try {
-      await authenticateAgentProvider(provider.id);
-      toast({
-        title: "Authentication complete",
-        description: `${provider.name} is now connected.`,
-      });
-      await loadQuota();
-    } catch (error) {
-      toast({
-        title: "Authentication failed",
-        description: String(error),
-        variant: "destructive",
-      });
-    } finally {
-      setIsAuthLoading(false);
-    }
-  };
 
   return (
     <motion.div
@@ -195,186 +65,45 @@ export function AgentCard({ provider, refreshToken, onDelete }: AgentCardProps) 
               <ProviderLogo type={provider.type} />
               <span className="text-sm font-semibold truncate">{provider.name}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div
-                className={cn(
-                  "flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider shrink-0",
-                  statusConfig.className
-                )}
-              >
-                <div className={cn("h-1 w-1 rounded-full", statusConfig.dotClassName)} />
-                {statusConfig.label}
-              </div>
+            <div
+              className={cn(
+                "flex items-center gap-1 rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider shrink-0",
+                statusConfig.className,
+              )}
+            >
+              <div className={cn("h-1 w-1 rounded-full", statusConfig.dotClassName)} />
+              {statusConfig.label}
             </div>
           </div>
         </CardHeader>
 
         <CardContent className="flex flex-1 flex-col space-y-3">
-          {!isLoggedIn ? (
-            <div className="py-4">
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={handleLogin}
-                disabled={!isAuthSupported || isAuthLoading}
-              >
-                {isAuthLoading ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                    Authenticating...
-                  </>
-                ) : isAuthSupported ? (
-                  <>
-                    <LogIn className="h-3.5 w-3.5 mr-2" />
-                    Login
-                  </>
-                ) : (
-                  "Not supported"
-                )}
-              </Button>
+          <div className="space-y-1">
+            <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+              Auth
             </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <div className="flex flex-col gap-1">
-                  {provider.authEmail ? (
-                    <span className="font-mono text-[9px] text-muted-foreground/80">
-                      {provider.authEmail}
-                    </span>
-                  ) : (
-                    <span className="uppercase tracking-wider">Authenticated</span>
-                  )}
-                </div>
-                {isLoggedIn && isQuotaSupported ? (
-                  <button
-                    type="button"
-                    onClick={loadQuota}
-                    className="text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                    aria-label={`Refresh ${provider.name}`}
-                  >
-                    Refresh
-                  </button>
-                ) : null}
-              </div>
+            <div className="rounded-md bg-secondary/50 px-2 py-1.5 text-[11px] text-foreground/80 truncate">
+              {provider.authEmail || (isLoggedIn ? "Authenticated" : "Not connected")}
+            </div>
+          </div>
 
-              {!isQuotaSupported ? (
-                <div className="rounded-md border border-border/60 bg-muted/40 px-2 py-2 text-[10px] text-muted-foreground">
-                  Usage is not available for this agent yet.
-                </div>
-              ) : quotaError ? (
-                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-2 py-2 text-[10px] text-destructive">
-                  {quotaError}
-                </div>
-              ) : hasEntries ? (
-                <>
-                  <div className={entriesContainerClass}>
-                    {displayedEntries.map((entry) => {
-                      const used = Math.min(
-                        100,
-                        Math.max(0, entry.usedPercent ?? 0)
-                      );
-                      return (
-                        <div key={entry.label} className="space-y-2">
-                          <div className="flex items-center justify-between text-[10px]">
-                            <span className="font-medium uppercase tracking-wider text-muted-foreground">
-                              {entry.label}
-                            </span>
-                            <span className="font-mono text-foreground/80">
-                              {formatUsageText(used)}
-                            </span>
-                          </div>
-                          <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
-                            <div
-                              className="h-full bg-primary transition-all"
-                              style={{ width: `${used}%` }}
-                            />
-                          </div>
-                          <div className="text-[9px] text-muted-foreground">
-                            {resetPrefix} {formatResetAt(entry.resetAt)}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {showExpandToggle ? (
-                    <div className="pt-1">
-                      <button
-                        type="button"
-                        onClick={() => setIsExpanded((prev) => !prev)}
-                        className="text-[9px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {isExpanded
-                          ? "Show less"
-                          : `${remainingEntryCount}+ more models`}
-                      </button>
-                    </div>
-                  ) : null}
-                  {quota?.note ? (
-                    <div className="rounded-md border border-border/60 bg-muted/40 px-2 py-2 text-[10px] text-muted-foreground">
-                      {quota.note}
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-medium uppercase tracking-wider text-muted-foreground">
-                        {quotaLabels.session}
-                      </span>
-                      <span className="font-mono text-foreground/80">
-                        {formatUsageText(sessionUsedPercentage)}
-                      </span>
-                    </div>
-                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
-                      <div
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${sessionUsedPercentage}%` }}
-                      />
-                    </div>
-                    <div className="text-[9px] text-muted-foreground">
-                      {resetPrefix} {formatResetAt(quota?.sessionResetAt)}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-[10px]">
-                      <span className="font-medium uppercase tracking-wider text-muted-foreground">
-                        {quotaLabels.week}
-                      </span>
-                      <span className="font-mono text-foreground/80">
-                        {formatUsageText(weekUsedPercentage)}
-                      </span>
-                    </div>
-                    <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-secondary/50">
-                      <div
-                        className="h-full bg-primary transition-all"
-                        style={{ width: `${weekUsedPercentage}%` }}
-                      />
-                    </div>
-                    <div className="text-[9px] text-muted-foreground">
-                      {resetPrefix} {formatResetAt(quota?.weekResetAt)}
-                    </div>
-                  </div>
-                  {quota?.note ? (
-                    <div className="rounded-md border border-border/60 bg-muted/40 px-2 py-2 text-[10px] text-muted-foreground">
-                      {quota.note}
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </>
-          )}
+          <div className="space-y-1">
+            <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+              Auth File
+            </div>
+            <div className="rounded-md bg-secondary/50 px-2 py-1.5 font-mono text-[11px] text-muted-foreground truncate">
+              {provider.authPath || "Not set"}
+            </div>
+          </div>
 
           <div className="mt-auto flex items-center justify-end pt-1">
             <button
               type="button"
-              onClick={() => onDelete(provider.id)}
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-              aria-label={`Delete ${provider.name}`}
+              onClick={() => onEdit(provider)}
+              className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label={`Edit ${provider.name}`}
             >
-              <Trash2 className="h-3.5 w-3.5" />
+              <Settings2 className="h-3.5 w-3.5" />
             </button>
           </div>
         </CardContent>

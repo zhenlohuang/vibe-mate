@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Plus, Loader2, RefreshCw } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import {
   ProviderCard,
@@ -19,7 +19,6 @@ import type {
 } from "@/types";
 import { containerVariants, itemVariants } from "@/lib/animations";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
 
 export function ProvidersPage() {
   const {
@@ -39,8 +38,9 @@ export function ProvidersPage() {
   const [editingProvider, setEditingProvider] = useState<
     Provider | undefined
   >();
-  const [refreshToken, setRefreshToken] = useState(0);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [editingAgentProvider, setEditingAgentProvider] = useState<
+    Provider | undefined
+  >();
 
   // Get existing agent types to prevent duplicates
   const existingAgentTypes = useMemo(
@@ -126,16 +126,6 @@ export function ProvidersPage() {
     }
   };
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      await refetch();
-      setRefreshToken((prev) => prev + 1);
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
   const handleTestConnection = async (id: string) => {
     const provider = providers.find((p) => p.id === id);
     try {
@@ -167,11 +157,44 @@ export function ProvidersPage() {
     setEditingProvider(undefined);
   };
 
+  const handleAgentFormClose = (isOpen: boolean) => {
+    if (!isOpen) {
+      setEditingAgentProvider(undefined);
+    }
+    setIsAgentFormOpen(isOpen);
+  };
+
+  const handleAgentEdit = (provider: Provider) => {
+    setEditingAgentProvider(provider);
+    setIsAgentFormOpen(true);
+  };
+
+  const handleAgentUpdate = async (data: CreateProviderInput) => {
+    if (!editingAgentProvider) return;
+    try {
+      const updateData: UpdateProviderInput = {
+        name: data.name,
+      };
+      await updateProvider(editingAgentProvider.id, updateData);
+      toast({
+        title: "Provider Updated",
+        description: `${data.name} has been updated successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: String(error),
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   if (isLoading) {
     return (
       <MainContent
-        title="Model Providers"
-        description="Configure API keys and proxy settings for your autonomous coding agents."
+        title="Providers"
+        description="Add model and agent providers. Use Quota to authenticate and view usage."
       >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -183,7 +206,7 @@ export function ProvidersPage() {
   return (
     <MainContent
       title="Providers"
-      description="Configure API keys and proxy settings for your autonomous coding agents."
+      description="Add model and agent providers. Use Quota to authenticate and view usage."
     >
       {/* Category Toggle */}
       <div className="mb-6 flex items-center justify-between gap-4">
@@ -196,22 +219,6 @@ export function ProvidersPage() {
             <TabsTrigger value="Agent">Agent</TabsTrigger>
           </TabsList>
         </Tabs>
-        {category === "Agent" ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            className="h-8 gap-2 px-3 text-[10px] uppercase tracking-wider"
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            {isRefreshing ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <RefreshCw className="h-3.5 w-3.5" />
-            )}
-            Refresh All
-          </Button>
-        ) : null}
       </div>
 
       {/* Provider Grid */}
@@ -227,8 +234,7 @@ export function ProvidersPage() {
               {provider.category === "Agent" ? (
                 <AgentCard
                   provider={provider}
-                  refreshToken={refreshToken}
-                  onDelete={handleDelete}
+                  onEdit={handleAgentEdit}
                 />
               ) : (
                 <ProviderCard
@@ -274,8 +280,10 @@ export function ProvidersPage() {
       {/* Agent Provider Form Dialog */}
       <AgentProviderForm
         open={isAgentFormOpen}
-        onOpenChange={setIsAgentFormOpen}
-        onSubmit={handleCreate}
+        onOpenChange={handleAgentFormClose}
+        provider={editingAgentProvider}
+        onSubmit={editingAgentProvider ? handleAgentUpdate : handleCreate}
+        onDelete={editingAgentProvider ? handleDelete : undefined}
         existingAgentTypes={existingAgentTypes}
       />
     </MainContent>

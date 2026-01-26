@@ -1,13 +1,8 @@
-export type Theme = "Dark" | "Light" | "System";
-
 export interface AppConfig {
   enableProxy: boolean;
   proxyHost: string | null;
   proxyPort: number | null;
   noProxy: string[];
-  appPort: number;
-  theme: Theme;
-  language: string;
   updatedAt: string;
 }
 
@@ -16,9 +11,6 @@ export interface UpdateAppConfigInput {
   proxyHost?: string | null;
   proxyPort?: number | null;
   noProxy?: string[];
-  appPort?: number;
-  theme?: Theme;
-  language?: string;
 }
 
 export interface LatencyResult {

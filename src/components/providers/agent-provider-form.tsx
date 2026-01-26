@@ -1,8 +1,9 @@
-import { useState } from "react";
-import type { CreateProviderInput, AgentProviderType } from "@/types";
+import { useState, useEffect } from "react";
+import type { CreateProviderInput, AgentProviderType, Provider } from "@/types";
 import { AGENT_TYPES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -23,48 +24,82 @@ import { ProviderLogo } from "./provider-logo";
 interface AgentProviderFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  provider?: Provider;
   onSubmit: (data: CreateProviderInput) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
   existingAgentTypes?: AgentProviderType[];
 }
 
 export function AgentProviderForm({
   open,
   onOpenChange,
+  provider,
   onSubmit,
+  onDelete,
   existingAgentTypes = [],
 }: AgentProviderFormProps) {
-  const [selectedType, setSelectedType] = useState<AgentProviderType | "">("");
+  const isEdit = !!provider;
+  const [selectedType, setSelectedType] = useState<AgentProviderType | "">(
+    (provider?.type as AgentProviderType) || "",
+  );
+  const [name, setName] = useState(provider?.name || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    if (provider) {
+      setSelectedType(provider.type as AgentProviderType);
+      setName(provider.name);
+    } else {
+      setSelectedType("");
+      setName("");
+    }
+  }, [provider]);
 
   // Filter out agent types that are already added
-  const availableAgentTypes = AGENT_TYPES.filter(
-    (agent) => !existingAgentTypes.includes(agent.value as AgentProviderType)
-  );
+  const availableAgentTypes = AGENT_TYPES.filter((agent) => {
+    if (isEdit) {
+      return agent.value === selectedType;
+    }
+    return !existingAgentTypes.includes(agent.value as AgentProviderType);
+  });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedType) return;
+    if (!selectedType || !name.trim()) return;
 
     setIsSubmitting(true);
     try {
-      const agentInfo = AGENT_TYPES.find((a) => a.value === selectedType);
       await onSubmit({
-        name: agentInfo?.label || selectedType,
+        name: name.trim(),
         category: "Agent",
         type: selectedType,
       });
       onOpenChange(false);
-      setSelectedType("");
     } catch (error) {
-      console.error("Failed to add agent:", error);
+      console.error("Failed to submit agent:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!provider || !onDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDelete(provider.id);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Failed to delete agent:", error);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleOpenChange = (isOpen: boolean) => {
     if (!isOpen) {
       setSelectedType("");
+      setName("");
     }
     onOpenChange(isOpen);
   };
@@ -73,9 +108,13 @@ export function AgentProviderForm({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[380px]">
         <DialogHeader>
-          <DialogTitle className="text-sm">Add Agent</DialogTitle>
+          <DialogTitle className="text-sm">
+            {isEdit ? "Edit Agent" : "Add Agent"}
+          </DialogTitle>
           <DialogDescription className="text-xs">
-            Select an AI coding agent to add. You can configure it after adding.
+            {isEdit
+              ? "Update the agent provider details."
+              : "Select an AI coding agent to add. You can configure it after adding."}
           </DialogDescription>
         </DialogHeader>
 
@@ -86,9 +125,15 @@ export function AgentProviderForm({
             {availableAgentTypes.length > 0 ? (
               <Select
                 value={selectedType}
-                onValueChange={(value) =>
-                  setSelectedType(value as AgentProviderType)
-                }
+                onValueChange={(value) => {
+                  const nextType = value as AgentProviderType;
+                  setSelectedType(nextType);
+                  if (!isEdit) {
+                    const agentInfo = AGENT_TYPES.find((a) => a.value === nextType);
+                    setName((prev) => (prev.trim() ? prev : agentInfo?.label || nextType));
+                  }
+                }}
+                disabled={isEdit}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select an agent" />
@@ -114,20 +159,51 @@ export function AgentProviderForm({
             )}
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="agentName">Name</Label>
+            <Input
+              id="agentName"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter a name for this agent"
+              required
+            />
+          </div>
+
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => handleOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!selectedType || isSubmitting || availableAgentTypes.length === 0}
-            >
-              {isSubmitting ? "Adding..." : "Add Agent"}
-            </Button>
+            {isEdit && onDelete ? (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isDeleting || isSubmitting}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </Button>
+            ) : (
+              <div />
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  !selectedType ||
+                  !name.trim() ||
+                  isSubmitting ||
+                  isDeleting ||
+                  availableAgentTypes.length === 0
+                }
+              >
+                {isSubmitting ? "Saving..." : isEdit ? "Save" : "Add Agent"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       </DialogContent>

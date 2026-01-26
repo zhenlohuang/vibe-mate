@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
-import { Settings as SettingsIcon, Network, Save, Loader2 } from "lucide-react";
+import { Network, Save, Loader2 } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,6 @@ export function SettingsPage() {
   const [hasChanges, setHasChanges] = useState(false);
 
   const [formData, setFormData] = useState({
-    appPort: "12345",
     enableProxy: false,
     proxyHost: "127.0.0.1",
     proxyPort: "7890",
@@ -27,7 +26,6 @@ export function SettingsPage() {
   useEffect(() => {
     if (appConfig) {
       setFormData({
-        appPort: appConfig.appPort?.toString() || "12345",
         enableProxy: appConfig.enableProxy || false,
         proxyHost: appConfig.proxyHost || "127.0.0.1",
         proxyPort: appConfig.proxyPort?.toString() || "7890",
@@ -44,7 +42,6 @@ export function SettingsPage() {
   const handleCancel = () => {
     if (appConfig) {
       setFormData({
-        appPort: appConfig.appPort?.toString() || "12345",
         enableProxy: appConfig.enableProxy || false,
         proxyHost: appConfig.proxyHost || "127.0.0.1",
         proxyPort: appConfig.proxyPort?.toString() || "7890",
@@ -63,7 +60,6 @@ export function SettingsPage() {
         .filter((item) => item.length > 0);
 
       const input: UpdateAppConfigInput = {
-        appPort: parseInt(formData.appPort) || 12345,
         enableProxy: formData.enableProxy,
         proxyHost: formData.proxyHost || null,
         proxyPort: formData.proxyPort ? parseInt(formData.proxyPort) : null,
@@ -89,45 +85,14 @@ export function SettingsPage() {
   return (
     <MainContent
       title="Preferences"
-      description="Manage your local vibe ports and upstream proxy connections."
+      description="Manage upstream proxy connections for Vibe Mate."
     >
       <div className="max-w-xl space-y-6">
-        {/* App Settings */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-4"
-        >
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
-              <SettingsIcon className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <h2 className="text-sm font-medium">App Settings</h2>
-          </div>
-
-          <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3 pl-8">
-            <Label htmlFor="port" className="text-xs text-muted-foreground">
-              Server Port
-            </Label>
-            <Input
-              id="port"
-              type="text"
-              value={formData.appPort}
-              onChange={(e) =>
-                handleFieldChange("appPort", e.target.value)
-              }
-              placeholder="12345"
-              className="h-8 w-32 font-mono text-sm"
-            />
-          </div>
-        </motion.div>
-
         {/* Network Settings */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          transition={{ duration: 0.3 }}
           className="space-y-4"
         >
           <div className="flex items-center gap-2">
