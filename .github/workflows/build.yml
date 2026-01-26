@@ -17,14 +17,6 @@ jobs:
       matrix:
         include:
           - platform: 'macos-14'
-            args: '--target aarch64-apple-darwin'
-            rust_targets: 'aarch64-apple-darwin'
-            bundle_path: 'src-tauri/target/aarch64-apple-darwin/release/bundle/'
-          - platform: 'macos-13'
-            args: '--target x86_64-apple-darwin'
-            rust_targets: 'x86_64-apple-darwin'
-            bundle_path: 'src-tauri/target/x86_64-apple-darwin/release/bundle/'
-          - platform: 'macos-14'
             args: '--target universal-apple-darwin'
             rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
             bundle_path: 'src-tauri/target/universal-apple-darwin/release/bundle/'
@@ -45,15 +37,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
