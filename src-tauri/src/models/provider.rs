@@ -79,9 +79,6 @@ pub struct Provider {
     pub provider_type: ProviderType,
     pub api_base_url: Option<String>,
     pub api_key: Option<String>,
-    pub auth_path: Option<String>,
-    pub auth_email: Option<String>,
-    pub is_default: bool,
     pub status: ProviderStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -102,20 +99,13 @@ impl Provider {
             provider_type: ProviderType::Model(provider_type),
             api_base_url: Some(api_base_url),
             api_key: Some(api_key),
-            auth_path: None,
-            auth_email: None,
-            is_default: false,
             status: ProviderStatus::Disconnected,
             created_at: now,
             updated_at: now,
         }
     }
 
-    pub fn new_agent(
-        name: String,
-        provider_type: AgentProviderType,
-        auth_path: Option<String>,
-    ) -> Self {
+    pub fn new_agent(name: String, provider_type: AgentProviderType) -> Self {
         let now = Utc::now();
         Self {
             id: uuid::Uuid::new_v4().to_string(),
@@ -124,9 +114,6 @@ impl Provider {
             provider_type: ProviderType::Agent(provider_type),
             api_base_url: None,
             api_key: None,
-            auth_path,
-            auth_email: None,
-            is_default: false,
             status: ProviderStatus::Disconnected,
             created_at: now,
             updated_at: now,
@@ -144,7 +131,6 @@ pub struct CreateProviderInput {
     pub provider_type: ProviderType,
     pub api_base_url: Option<String>,
     pub api_key: Option<String>,
-    pub auth_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -153,7 +139,6 @@ pub struct UpdateProviderInput {
     pub name: Option<String>,
     pub api_base_url: Option<String>,
     pub api_key: Option<String>,
-    pub auth_path: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

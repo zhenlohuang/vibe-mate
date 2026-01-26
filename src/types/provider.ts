@@ -15,8 +15,6 @@ export interface Provider {
   type: ProviderType;
   apiBaseUrl?: string;
   apiKey?: string;
-  authPath?: string;
-  authEmail?: string;
   status: ProviderStatus;
   createdAt: string;
   updatedAt: string;
@@ -28,14 +26,12 @@ export interface CreateProviderInput {
   type: ProviderType;
   apiBaseUrl?: string;
   apiKey?: string;
-  authPath?: string;
 }
 
 export interface UpdateProviderInput {
   name?: string;
   apiBaseUrl?: string;
   apiKey?: string;
-  authPath?: string;
 }
 
 export interface ConnectionStatus {

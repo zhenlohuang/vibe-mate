@@ -2,11 +2,11 @@ use crate::agents::{
     auth::{
         auth_path_for_provider_id, build_google_auth_url, exchange_google_code,
         parse_google_id_token, refresh_google_token, save_auth_file, should_refresh_google,
-        AgentAuthContext, AgentAuthError, AuthEmail, AuthFlowStart,
+        AgentAuthContext, AgentAuthError, AuthFlowStart,
     },
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentQuota, AgentType, Provider};
+use crate::models::{AgentQuota, AgentType, Provider, ProviderStatus};
 
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::{Deserialize, Serialize};
@@ -61,12 +61,6 @@ struct GeminiTokenStorage {
     pub expire: String,
     pub email: String,
     pub project_id: Option<String>,
-}
-
-impl AuthEmail for GeminiTokenStorage {
-    fn email(&self) -> &str {
-        &self.email
-    }
 }
 
 pub(crate) fn start_auth_flow(state: &str) -> Result<AuthFlowStart, AgentAuthError> {
@@ -129,7 +123,7 @@ pub(crate) async fn complete_auth(
     let auth_path = auth_path_for_provider_id(provider_id)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
-    ctx.update_provider_auth_path(provider_id, &auth_path, &email)
+    ctx.update_provider_status(provider_id, ProviderStatus::Connected)
         .await?;
 
     Ok(())

@@ -170,7 +170,7 @@ export function AgentProviderForm({
             />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="flex-row justify-between sm:justify-between">
             {isEdit && onDelete ? (
               <Button
                 type="button"

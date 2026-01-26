@@ -8,9 +8,9 @@ use tracing::{info, warn};
 use crate::agents::auth::{
     auth_path_for_provider_id, build_google_auth_url, exchange_google_code, parse_google_id_token,
     parse_rfc3339_to_epoch, refresh_google_token, save_auth_file, should_refresh_google,
-    AgentAuthContext, AgentAuthError, AuthEmail, AuthFlowStart,
+    AgentAuthContext, AgentAuthError, AuthFlowStart,
 };
-use crate::models::{AgentQuota, AgentQuotaEntry, Provider};
+use crate::models::{AgentQuota, AgentQuotaEntry, Provider, ProviderStatus};
 
 const ANTIGRAVITY_CLIENT_ID: &str =
     "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
@@ -98,12 +98,6 @@ struct OnboardResponseData {
     cloudaicompanion_project: Option<ProjectRef>,
 }
 
-impl AuthEmail for AntigravityTokenStorage {
-    fn email(&self) -> &str {
-        &self.email
-    }
-}
-
 pub(crate) fn start_auth_flow(state: &str) -> Result<AuthFlowStart, AgentAuthError> {
     let auth_url = build_google_auth_url(
         ANTIGRAVITY_CLIENT_ID,
@@ -165,7 +159,7 @@ pub(crate) async fn complete_auth(
     let auth_path = auth_path_for_provider_id(provider_id)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
-    ctx.update_provider_auth_path(provider_id, &auth_path, &email)
+    ctx.update_provider_status(provider_id, ProviderStatus::Connected)
         .await?;
 
     Ok(())

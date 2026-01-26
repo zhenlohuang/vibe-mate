@@ -18,9 +18,9 @@ function getStatusConfig(status: Provider["status"]) {
   switch (status) {
     case "Connected":
       return {
-        label: "STANDBY",
-        className: "bg-warning/20 text-warning",
-        dotClassName: "bg-warning",
+        label: "ACTIVE",
+        className: "bg-success/20 text-success",
+        dotClassName: "bg-success",
       };
     case "Disconnected":
       return {
@@ -44,14 +44,8 @@ function getStatusConfig(status: Provider["status"]) {
 }
 
 export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) {
-  const isLoggedIn = provider.authPath !== null && provider.authPath !== undefined;
-  const statusConfig = isLoggedIn
-    ? {
-        label: "ACTIVE",
-        className: "bg-success/20 text-success",
-        dotClassName: "bg-success",
-      }
-    : getStatusConfig(provider.status);
+  const isLoggedIn = provider.status === "Connected";
+  const statusConfig = getStatusConfig(provider.status);
   const isAuthSupported = [
     "Codex",
     "ClaudeCode",
@@ -156,7 +150,7 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
       setQuota(null);
       setQuotaError(null);
     }
-  }, [isLoggedIn, isAuthSupported, provider.id, provider.authPath, refreshToken]);
+  }, [isLoggedIn, isAuthSupported, provider.id, refreshToken]);
 
   const handleLogin = async () => {
     setIsAuthLoading(true);
@@ -237,13 +231,7 @@ export function AgentQuotaCard({ provider, refreshToken }: AgentQuotaCardProps) 
             <>
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <div className="flex flex-col gap-1">
-                  {provider.authEmail ? (
-                    <span className="font-mono text-[9px] text-muted-foreground/80">
-                      {provider.authEmail}
-                    </span>
-                  ) : (
-                    <span className="uppercase tracking-wider">Authenticated</span>
-                  )}
+                  <span className="uppercase tracking-wider">Authenticated</span>
                 </div>
                 {isLoggedIn && isQuotaSupported ? (
                   <button

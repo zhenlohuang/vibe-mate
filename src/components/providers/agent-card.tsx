@@ -40,14 +40,8 @@ function getStatusConfig(status: Provider["status"]) {
 }
 
 export function AgentCard({ provider, onEdit }: AgentCardProps) {
-  const isLoggedIn = provider.authPath !== null && provider.authPath !== undefined;
-  const statusConfig = isLoggedIn
-    ? {
-        label: "ACTIVE",
-        className: "bg-success/20 text-success",
-        dotClassName: "bg-success",
-      }
-    : getStatusConfig(provider.status);
+  const isLoggedIn = provider.status === "Connected";
+  const statusConfig = getStatusConfig(provider.status);
 
   return (
     <motion.div
@@ -83,16 +77,7 @@ export function AgentCard({ provider, onEdit }: AgentCardProps) {
               Auth
             </div>
             <div className="rounded-md bg-secondary/50 px-2 py-1.5 text-[11px] text-foreground/80 truncate">
-              {provider.authEmail || (isLoggedIn ? "Authenticated" : "Not connected")}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-              Auth File
-            </div>
-            <div className="rounded-md bg-secondary/50 px-2 py-1.5 font-mono text-[11px] text-muted-foreground truncate">
-              {provider.authPath || "Not set"}
+              {isLoggedIn ? "Authenticated" : "Not connected"}
             </div>
           </div>
 

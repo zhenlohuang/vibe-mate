@@ -17,7 +17,9 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{oneshot, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::models::{ApiGroup, Provider, RoutingRule, RuleType, VibeMateConfig};
+use crate::models::{
+    ApiGroup, Provider, ProviderCategory, RoutingRule, RuleType, VibeMateConfig,
+};
 use crate::storage::ConfigStore;
 
 /// Create HTTP client with proxy support based on config
@@ -698,7 +700,7 @@ fn resolve_provider(
     let default_provider = config
         .providers
         .iter()
-        .find(|p| p.is_default)
+        .find(|p| p.provider_category == ProviderCategory::Model)
         .or_else(|| config.providers.first())?;
 
     Some(ResolvedProvider {

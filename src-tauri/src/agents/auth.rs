@@ -7,7 +7,7 @@ use rand::{distributions::Alphanumeric, Rng};
 use reqwest::{NoProxy, Proxy};
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use tracing::{debug, info, warn};
+use tracing::{debug, warn};
 
 use crate::models::{Provider, ProviderStatus};
 use crate::storage::ConfigStore;
@@ -52,10 +52,6 @@ pub struct AuthFlowStart {
     pub code_verifier: String,
 }
 
-pub trait AuthEmail {
-    fn email(&self) -> &str;
-}
-
 #[derive(Clone)]
 pub struct AgentAuthContext {
     store: Arc<ConfigStore>,
@@ -75,21 +71,16 @@ impl AgentAuthContext {
             .ok_or_else(|| AgentAuthError::ProviderNotFound(id.to_string()))
     }
 
-    pub async fn update_provider_auth_path(
+    pub async fn update_provider_status(
         &self,
         provider_id: &str,
-        auth_path: &PathBuf,
-        email: &str,
+        status: ProviderStatus,
     ) -> Result<(), AgentAuthError> {
         let id = provider_id.to_string();
-        let auth_path_string = auth_path.to_string_lossy().to_string();
-        let email_string = email.to_string();
         self.store
             .update(|config| {
                 if let Some(provider) = config.providers.iter_mut().find(|p| p.id == id) {
-                    provider.auth_path = Some(auth_path_string.clone());
-                    provider.auth_email = Some(email_string.clone());
-                    provider.status = ProviderStatus::Connected;
+                    provider.status = status.clone();
                     provider.updated_at = Utc::now();
                 }
             })
@@ -102,54 +93,22 @@ impl AgentAuthContext {
         provider: &Provider,
     ) -> Result<(PathBuf, T), AgentAuthError>
     where
-        T: DeserializeOwned + AuthEmail,
+        T: DeserializeOwned,
     {
-        let auth_path = provider
-            .auth_path
-            .clone()
-            .ok_or_else(|| AgentAuthError::Parse("Auth path not set. Please login again.".to_string()))?;
-        let mut auth_path = PathBuf::from(auth_path);
+        let auth_path = auth_path_for_provider_id(&provider.id)?;
         if !auth_path.exists() {
+            let _ = self
+                .update_provider_status(&provider.id, ProviderStatus::Disconnected)
+                .await;
             return Err(AgentAuthError::Parse(
                 "Auth file not found. Please login again.".to_string(),
             ));
         }
         debug!("Loading auth token from {}", auth_path.display());
         let auth: T = load_auth_file(&auth_path).await?;
-
-        let desired_path = auth_path_for_provider_id(&provider.id)?;
-        if desired_path != auth_path {
-            let mut final_path = desired_path.clone();
-            if !final_path.exists() {
-                match tokio::fs::rename(&auth_path, &final_path).await {
-                    Ok(()) => {
-                        info!("Renamed auth file to {}", final_path.display());
-                    }
-                    Err(err) => {
-                        warn!(
-                            "Failed to rename auth file from {} to {}: {}",
-                            auth_path.display(),
-                            final_path.display(),
-                            err
-                        );
-                        final_path = auth_path.clone();
-                    }
-                }
-            }
-            if final_path != auth_path && final_path.exists() {
-                self.update_provider_auth_path(&provider.id, &final_path, auth.email())
-                    .await?;
-            }
-            auth_path = final_path;
-        } else if provider
-            .auth_email
-            .as_deref()
-            .map(|email| email != auth.email())
-            .unwrap_or(true)
-        {
-            self.update_provider_auth_path(&provider.id, &auth_path, auth.email())
-                .await?;
-        }
+        let _ = self
+            .update_provider_status(&provider.id, ProviderStatus::Connected)
+            .await;
 
         Ok((auth_path, auth))
     }

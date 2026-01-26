@@ -4,7 +4,6 @@ import { Plus, Loader2 } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import {
   ProviderCard,
-  AgentCard,
   ProviderForm,
   AgentProviderForm,
 } from "@/components/providers";
@@ -231,19 +230,11 @@ export function ProvidersPage() {
         <AnimatePresence mode="popLayout">
           {filteredProviders.map((provider) => (
             <motion.div key={provider.id} variants={itemVariants} layout>
-              {provider.category === "Agent" ? (
-                <AgentCard
-                  provider={provider}
-                  onEdit={handleAgentEdit}
-                />
-              ) : (
-                <ProviderCard
-                  provider={provider}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onTestConnection={handleTestConnection}
-                />
-              )}
+              <ProviderCard
+                provider={provider}
+                onEdit={provider.category === "Agent" ? handleAgentEdit : handleEdit}
+                onTestConnection={handleTestConnection}
+              />
             </motion.div>
           ))}
         </AnimatePresence>

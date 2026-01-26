@@ -1,9 +1,9 @@
 use crate::agents::{
-    auth::{auth_path_for_provider_id, generate_pkce_codes, save_auth_file, AuthEmail, AuthFlowStart},
+    auth::{auth_path_for_provider_id, generate_pkce_codes, save_auth_file, AuthFlowStart},
     auth::{AgentAuthContext, AgentAuthError},
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentQuota, AgentType, Provider};
+use crate::models::{AgentQuota, AgentType, Provider, ProviderStatus};
 
 use base64::Engine as _;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
@@ -104,12 +104,6 @@ struct OpenAIOrganization {
     uuid: Option<String>,
 }
 
-impl AuthEmail for CodexTokenStorage {
-    fn email(&self) -> &str {
-        &self.email
-    }
-}
-
 pub(crate) fn start_auth_flow(state: &str) -> Result<AuthFlowStart, AgentAuthError> {
     let (code_verifier, code_challenge) = generate_pkce_codes();
     let auth_url = build_codex_auth_url(state, &code_challenge)?;
@@ -157,7 +151,7 @@ pub(crate) async fn complete_auth(
     let auth_path = auth_path_for_provider_id(provider_id)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
-    ctx.update_provider_auth_path(provider_id, &auth_path, &email)
+    ctx.update_provider_status(provider_id, ProviderStatus::Connected)
         .await?;
 
     Ok(())

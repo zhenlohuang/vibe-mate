@@ -8,8 +8,7 @@ import { ProviderLogo } from "./provider-logo";
 interface ProviderCardProps {
   provider: Provider;
   onEdit: (provider: Provider) => void;
-  onDelete: (id: string) => void;
-  onTestConnection: (id: string) => void;
+  onTestConnection?: (id: string) => void;
 }
 
 function getStatusConfig(status: Provider["status"]) {
@@ -47,6 +46,8 @@ export function ProviderCard({
   onTestConnection,
 }: ProviderCardProps) {
   const statusConfig = getStatusConfig(provider.status);
+  const canTestConnection =
+    provider.category === "Model" && typeof onTestConnection === "function";
 
   return (
     <motion.div
@@ -81,14 +82,16 @@ export function ProviderCard({
           <div className="space-y-1">
             <div className="flex items-center justify-between text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
               <span>Endpoint</span>
-              <button
-                type="button"
-                onClick={() => onTestConnection(provider.id)}
-                className="text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                aria-label={`Refresh ${provider.name}`}
-              >
-                Refresh
-              </button>
+              {canTestConnection ? (
+                <button
+                  type="button"
+                  onClick={() => onTestConnection(provider.id)}
+                  className="text-[9px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                  aria-label={`Refresh ${provider.name}`}
+                >
+                  Refresh
+                </button>
+              ) : null}
             </div>
             <div className="rounded-md bg-secondary/50 px-2 py-1.5 font-mono text-[11px] text-foreground/80 truncate">
               {provider.apiBaseUrl || "Not configured"}

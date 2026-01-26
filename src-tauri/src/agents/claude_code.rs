@@ -2,10 +2,10 @@ use crate::agents::{
     auth::{
         auth_path_for_provider_id, generate_pkce_codes, parse_rfc3339_to_epoch, save_auth_file,
     },
-    auth::{AgentAuthContext, AgentAuthError, AuthEmail, AuthFlowStart},
+    auth::{AgentAuthContext, AgentAuthError, AuthFlowStart},
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentQuota, AgentQuotaEntry, AgentType, Provider};
+use crate::models::{AgentQuota, AgentQuotaEntry, AgentType, Provider, ProviderStatus};
 
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use reqwest::StatusCode as ReqwestStatusCode;
@@ -91,12 +91,6 @@ struct ClaudeUsageWindow {
     resets_at: Option<String>,
 }
 
-impl AuthEmail for ClaudeTokenStorage {
-    fn email(&self) -> &str {
-        &self.email
-    }
-}
-
 pub(crate) fn start_auth_flow(state: &str) -> Result<AuthFlowStart, AgentAuthError> {
     let (code_verifier, code_challenge) = generate_pkce_codes();
     let auth_url = build_claude_auth_url(state, &code_challenge)?;
@@ -131,7 +125,7 @@ pub(crate) async fn complete_auth(
     let auth_path = auth_path_for_provider_id(provider_id)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
-    ctx.update_provider_auth_path(provider_id, &auth_path, &email)
+    ctx.update_provider_status(provider_id, ProviderStatus::Connected)
         .await?;
 
     Ok(())
