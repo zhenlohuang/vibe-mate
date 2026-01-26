@@ -106,12 +106,12 @@ mod tests {
         
         // Update config
         store.update(|config| {
-            config.app.language = "zh".to_string();
+            config.app.enable_proxy = true;
         }).await.unwrap();
         
         // Reload and verify
         store.load().await.unwrap();
         let config = store.get_config().await;
-        assert_eq!(config.app.language, "zh");
+        assert!(config.app.enable_proxy);
     }
 }

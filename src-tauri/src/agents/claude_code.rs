@@ -1,9 +1,11 @@
 use crate::agents::{
-    auth::{auth_path_for_email, generate_pkce_codes, parse_rfc3339_to_epoch, save_auth_file},
+    auth::{
+        auth_path_for_provider_id, generate_pkce_codes, parse_rfc3339_to_epoch, save_auth_file,
+    },
     auth::{AgentAuthContext, AgentAuthError, AuthEmail, AuthFlowStart},
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentProviderType, AgentQuota, AgentQuotaEntry, AgentType, Provider};
+use crate::models::{AgentQuota, AgentQuotaEntry, AgentType, Provider};
 
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use reqwest::StatusCode as ReqwestStatusCode;
@@ -86,7 +88,7 @@ struct ClaudeUsageResponse {
 #[derive(Debug, Deserialize)]
 struct ClaudeUsageWindow {
     utilization: f64,
-    resets_at: String,
+    resets_at: Option<String>,
 }
 
 impl AuthEmail for ClaudeTokenStorage {
@@ -126,7 +128,7 @@ pub(crate) async fn complete_auth(
         expire: expire_at.to_rfc3339(),
     };
 
-    let auth_path = auth_path_for_email(&AgentProviderType::ClaudeCode, &email)?;
+    let auth_path = auth_path_for_provider_id(provider_id)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
     ctx.update_provider_auth_path(provider_id, &auth_path, &email)
@@ -140,7 +142,7 @@ pub(crate) async fn get_quota(
     provider: &Provider,
 ) -> Result<AgentQuota, AgentAuthError> {
     let (auth_path, mut auth): (std::path::PathBuf, ClaudeTokenStorage) = ctx
-        .load_and_normalize_auth(provider, AgentProviderType::ClaudeCode)
+        .load_and_normalize_auth(provider)
         .await?;
 
     if should_refresh_claude(&auth) {
@@ -173,10 +175,11 @@ async fn fetch_claude_quota(
         .send()
         .await?;
 
-    match response.status() {
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    match status {
         ReqwestStatusCode::UNAUTHORIZED => return Err(AgentAuthError::Unauthorized),
         status if !status.is_success() => {
-            let body = response.text().await.unwrap_or_default();
             warn!("Claude usage request failed: status {} body {}", status, body);
             return Err(AgentAuthError::Parse(format!(
                 "Claude usage request failed ({}): {}",
@@ -186,17 +189,35 @@ async fn fetch_claude_quota(
         _ => {}
     }
 
-    let data: ClaudeUsageResponse = response.json().await?;
+    let data: ClaudeUsageResponse = serde_json::from_str(&body).map_err(|err| {
+        let snippet: String = body.chars().take(200).collect();
+        warn!(
+            "Claude usage response decode failed: {} body {}",
+            err, snippet
+        );
+        AgentAuthError::Parse(format!(
+            "Claude usage response not JSON: {}",
+            snippet
+        ))
+    })?;
     let mut entries = Vec::new();
 
-    let five_hour_reset = parse_rfc3339_to_epoch(&data.five_hour.resets_at);
+    let five_hour_reset = data
+        .five_hour
+        .resets_at
+        .as_deref()
+        .and_then(parse_rfc3339_to_epoch);
     entries.push(AgentQuotaEntry {
         label: "5h".to_string(),
         used_percent: data.five_hour.utilization,
         reset_at: five_hour_reset,
     });
 
-    let seven_day_reset = parse_rfc3339_to_epoch(&data.seven_day.resets_at);
+    let seven_day_reset = data
+        .seven_day
+        .resets_at
+        .as_deref()
+        .and_then(parse_rfc3339_to_epoch);
     entries.push(AgentQuotaEntry {
         label: "7d".to_string(),
         used_percent: data.seven_day.utilization,
@@ -207,14 +228,20 @@ async fn fetch_claude_quota(
         entries.push(AgentQuotaEntry {
             label: "7d sonnet".to_string(),
             used_percent: window.utilization,
-            reset_at: parse_rfc3339_to_epoch(&window.resets_at),
+            reset_at: window
+                .resets_at
+                .as_deref()
+                .and_then(parse_rfc3339_to_epoch),
         });
     }
     if let Some(window) = data.seven_day_opus.as_ref() {
         entries.push(AgentQuotaEntry {
             label: "7d opus".to_string(),
             used_percent: window.utilization,
-            reset_at: parse_rfc3339_to_epoch(&window.resets_at),
+            reset_at: window
+                .resets_at
+                .as_deref()
+                .and_then(parse_rfc3339_to_epoch),
         });
     }
 

@@ -9,7 +9,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::{debug, info, warn};
 
-use crate::models::{AgentProviderType, Provider, ProviderStatus};
+use crate::models::{Provider, ProviderStatus};
 use crate::storage::ConfigStore;
 
 const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -100,7 +100,6 @@ impl AgentAuthContext {
     pub async fn load_and_normalize_auth<T>(
         &self,
         provider: &Provider,
-        agent_type: AgentProviderType,
     ) -> Result<(PathBuf, T), AgentAuthError>
     where
         T: DeserializeOwned + AuthEmail,
@@ -118,7 +117,7 @@ impl AgentAuthContext {
         debug!("Loading auth token from {}", auth_path.display());
         let auth: T = load_auth_file(&auth_path).await?;
 
-        let desired_path = auth_path_for_email(&agent_type, auth.email())?;
+        let desired_path = auth_path_for_provider_id(&provider.id)?;
         if desired_path != auth_path {
             let mut final_path = desired_path.clone();
             if !final_path.exists() {
@@ -371,28 +370,21 @@ pub fn parse_rfc3339_to_epoch(value: &str) -> Option<i64> {
         .ok()
 }
 
-pub fn auth_path_for_email(
-    agent_type: &AgentProviderType,
-    email: &str,
-) -> Result<PathBuf, AgentAuthError> {
+// Save agent auth tokens by provider UUID under ~/.vibemate/auth/<uuid>.json.
+pub fn auth_path_for_provider_id(provider_id: &str) -> Result<PathBuf, AgentAuthError> {
     let home = dirs::home_dir()
         .ok_or_else(|| AgentAuthError::Parse("Could not determine home directory".to_string()))?;
-    let sanitized_email: String = email
+    let sanitized_id: String = provider_id
         .chars()
         .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '@' || ch == '.' || ch == '_' || ch == '-' {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
                 ch
             } else {
                 '_'
             }
         })
         .collect();
-    let filename = match agent_type {
-        AgentProviderType::Codex => format!("codex_{}.json", sanitized_email),
-        AgentProviderType::ClaudeCode => format!("claude-code_{}.json", sanitized_email),
-        AgentProviderType::GeminiCli => format!("gemini-cli_{}.json", sanitized_email),
-        AgentProviderType::Antigravity => format!("antigravity_{}.json", sanitized_email),
-    };
+    let filename = format!("{}.json", sanitized_id);
     Ok(home.join(".vibemate").join("auth").join(filename))
 }
 

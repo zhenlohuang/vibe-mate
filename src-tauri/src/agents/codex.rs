@@ -1,9 +1,9 @@
 use crate::agents::{
-    auth::{auth_path_for_email, generate_pkce_codes, save_auth_file, AuthEmail, AuthFlowStart},
+    auth::{auth_path_for_provider_id, generate_pkce_codes, save_auth_file, AuthEmail, AuthFlowStart},
     auth::{AgentAuthContext, AgentAuthError},
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentProviderType, AgentQuota, AgentType, Provider};
+use crate::models::{AgentQuota, AgentType, Provider};
 
 use base64::Engine as _;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
@@ -154,7 +154,7 @@ pub(crate) async fn complete_auth(
         expire: expire_at.to_rfc3339(),
     };
 
-    let auth_path = auth_path_for_email(&AgentProviderType::Codex, &email)?;
+    let auth_path = auth_path_for_provider_id(provider_id)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
     ctx.update_provider_auth_path(provider_id, &auth_path, &email)
@@ -168,7 +168,7 @@ pub(crate) async fn get_quota(
     provider: &Provider,
 ) -> Result<AgentQuota, AgentAuthError> {
     let (auth_path, mut auth): (std::path::PathBuf, CodexTokenStorage) = ctx
-        .load_and_normalize_auth(provider, AgentProviderType::Codex)
+        .load_and_normalize_auth(provider)
         .await?;
 
     if should_refresh_codex(&auth) {

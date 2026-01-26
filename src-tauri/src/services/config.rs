@@ -39,15 +39,6 @@ impl ConfigService {
                 if let Some(no_proxy) = input.no_proxy.clone() {
                     config.app.no_proxy = no_proxy;
                 }
-                if let Some(app_port) = input.app_port {
-                    config.app.app_port = app_port;
-                }
-                if let Some(theme) = input.theme.clone() {
-                    config.app.theme = theme;
-                }
-                if let Some(language) = input.language.clone() {
-                    config.app.language = language;
-                }
                 config.app.updated_at = Utc::now();
             })
             .await?;

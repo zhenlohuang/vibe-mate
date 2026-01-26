@@ -3,19 +3,6 @@ use serde::{Deserialize, Serialize};
 
 use super::{Provider, RoutingRule};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum Theme {
-    Dark,
-    Light,
-    System,
-}
-
-impl Default for Theme {
-    fn default() -> Self {
-        Self::Dark
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
@@ -24,9 +11,6 @@ pub struct AppConfig {
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
     pub no_proxy: Vec<String>,
-    pub app_port: u16,
-    pub theme: Theme,
-    pub language: String,
     pub updated_at: DateTime<Utc>,
 }
 
@@ -37,9 +21,6 @@ impl Default for AppConfig {
             proxy_host: None,
             proxy_port: None,
             no_proxy: Vec::new(),
-            app_port: 12345,
-            theme: Theme::Dark,
-            language: "en".to_string(),
             updated_at: Utc::now(),
         }
     }
@@ -52,9 +33,6 @@ pub struct UpdateAppConfigInput {
     pub proxy_host: Option<String>,
     pub proxy_port: Option<u16>,
     pub no_proxy: Option<Vec<String>>,
-    pub app_port: Option<u16>,
-    pub theme: Option<Theme>,
-    pub language: Option<String>,
 }
 
 /// Unified configuration file structure (~/.vibemate/settings.json)
