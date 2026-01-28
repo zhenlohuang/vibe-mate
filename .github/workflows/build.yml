@@ -20,14 +20,17 @@ jobs:
             args: '--target universal-apple-darwin'
             rust_targets: 'aarch64-apple-darwin,x86_64-apple-darwin'
             bundle_path: 'src-tauri/target/universal-apple-darwin/release/bundle/'
+            artifact_name: 'macos-universal'
           - platform: 'ubuntu-22.04'
             args: ''
             rust_targets: ''
             bundle_path: 'src-tauri/target/release/bundle/'
+            artifact_name: 'linux-x64'
           - platform: 'windows-latest'
             args: ''
             rust_targets: ''
             bundle_path: 'src-tauri/target/release/bundle/'
+            artifact_name: 'windows-x64'
 
     runs-on: ${{ matrix.platform }}
 
@@ -81,7 +84,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: artifacts-${{ matrix.platform }}-${{ strategy.job-index }}
+          name: vibe-mate-${{ matrix.artifact_name }}
           path: |
             ${{ matrix.bundle_path }}
           retention-days: 7
