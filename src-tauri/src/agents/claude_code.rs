@@ -1,6 +1,7 @@
 use crate::agents::{
     auth::{
         auth_path_for_provider_id, generate_pkce_codes, parse_rfc3339_to_epoch, save_auth_file,
+        AgentAuth,
     },
     auth::{AgentAuthContext, AgentAuthError, AuthFlowStart},
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
@@ -19,6 +20,7 @@ const CLAUDE_REDIRECT_URI: &str = "http://localhost:54545/callback";
 const CLAUDE_CALLBACK_PATH: &str = "/callback";
 const CLAUDE_CALLBACK_PORT: u16 = 54545;
 const CLAUDE_USAGE_URL: &str = "https://api.anthropic.com/api/oauth/usage";
+pub(crate) const CLAUDE_API_BASE_URL: &str = "https://api.anthropic.com";
 
 const CLAUDE_SCOPES: &[&str] = &["org:create_api_key", "user:profile", "user:inference"];
 
@@ -350,4 +352,41 @@ fn should_refresh_claude(auth: &ClaudeTokenStorage) -> bool {
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(|_| Utc::now());
     expire - Utc::now() < ChronoDuration::minutes(5)
+}
+
+/// Get valid authentication for Claude Code proxy requests
+pub(crate) async fn get_valid_auth(
+    ctx: &AgentAuthContext,
+    provider: &Provider,
+) -> Result<AgentAuth, AgentAuthError> {
+    let (auth_path, mut auth): (std::path::PathBuf, ClaudeTokenStorage) =
+        ctx.load_and_normalize_auth(provider).await?;
+
+    // Refresh if needed (5 minutes before expiry)
+    if should_refresh_claude(&auth) {
+        auth = refresh_claude_token(ctx, &auth).await?;
+        save_auth_file(&auth_path, &auth).await?;
+    }
+
+    // Determine if OAuth token or API key based on prefix
+    let is_oauth = auth.access_token.starts_with("sk-ant-oat-");
+
+    let mut additional_headers = vec![
+        ("anthropic-version".to_string(), "2023-06-01".to_string()),
+    ];
+
+    // OAuth tokens need beta header
+    if is_oauth {
+        additional_headers.push((
+            "anthropic-beta".to_string(),
+            "claude-code-20250219,oauth-2025-04-20".to_string(),
+        ));
+    }
+
+    Ok(AgentAuth {
+        access_token: auth.access_token,
+        api_base_url: CLAUDE_API_BASE_URL.to_string(),
+        additional_headers,
+        is_oauth_token: is_oauth,
+    })
 }

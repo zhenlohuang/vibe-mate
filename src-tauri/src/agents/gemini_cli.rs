@@ -2,7 +2,7 @@ use crate::agents::{
     auth::{
         auth_path_for_provider_id, build_google_auth_url, exchange_google_code,
         parse_google_id_token, refresh_google_token, save_auth_file, should_refresh_google,
-        AgentAuthContext, AgentAuthError, AuthFlowStart,
+        AgentAuth, AgentAuthContext, AgentAuthError, AuthFlowStart,
     },
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
@@ -18,6 +18,7 @@ const GEMINI_CLIENT_SECRET: &str = "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";
 const GEMINI_REDIRECT_URI: &str = "http://localhost:8085/oauth2callback";
 const GEMINI_CALLBACK_PATH: &str = "/oauth2callback";
 const GEMINI_CALLBACK_PORT: u16 = 8085;
+pub(crate) const GEMINI_API_BASE_URL: &str = "https://generativelanguage.googleapis.com";
 
 const GEMINI_SCOPES: &[&str] = &[
     "openid",
@@ -184,5 +185,27 @@ async fn fetch_gemini_quota(
         week_reset_at: None,
         entries: None,
         note: Some("Gemini CLI does not expose a quota API yet.".to_string()),
+    })
+}
+
+/// Get valid authentication for Gemini CLI proxy requests
+pub(crate) async fn get_valid_auth(
+    ctx: &AgentAuthContext,
+    provider: &Provider,
+) -> Result<AgentAuth, AgentAuthError> {
+    let (auth_path, mut auth): (std::path::PathBuf, GeminiTokenStorage) =
+        ctx.load_and_normalize_auth(provider).await?;
+
+    // Refresh if needed (50 minutes before expiry)
+    if should_refresh_google(&auth.timestamp, auth.expires_in) {
+        auth = refresh_gemini_token(ctx, &auth).await?;
+        save_auth_file(&auth_path, &auth).await?;
+    }
+
+    Ok(AgentAuth {
+        access_token: auth.access_token,
+        api_base_url: GEMINI_API_BASE_URL.to_string(),
+        additional_headers: vec![],
+        is_oauth_token: true,
     })
 }

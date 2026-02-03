@@ -50,6 +50,19 @@ pub struct AuthFlowStart {
     pub code_verifier: String,
 }
 
+/// Agent authentication information for proxy requests
+#[derive(Debug, Clone)]
+pub struct AgentAuth {
+    /// Access token for API calls
+    pub access_token: String,
+    /// Base URL for the agent's API
+    pub api_base_url: String,
+    /// Additional headers to include in requests
+    pub additional_headers: Vec<(String, String)>,
+    /// Whether this is an OAuth token (affects request transformation)
+    pub is_oauth_token: bool,
+}
+
 #[derive(Clone)]
 pub struct AgentAuthContext {
     store: Arc<ConfigStore>,

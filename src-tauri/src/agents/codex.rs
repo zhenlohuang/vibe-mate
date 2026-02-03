@@ -1,5 +1,7 @@
 use crate::agents::{
-    auth::{auth_path_for_provider_id, generate_pkce_codes, save_auth_file, AuthFlowStart},
+    auth::{
+        auth_path_for_provider_id, generate_pkce_codes, save_auth_file, AgentAuth, AuthFlowStart,
+    },
     auth::{AgentAuthContext, AgentAuthError},
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
@@ -19,6 +21,7 @@ const CODEX_CALLBACK_PATH: &str = "/auth/callback";
 const CODEX_CALLBACK_PORT: u16 = 1455;
 const ORIGINATOR: &str = "codex_cli_rs";
 const CODEX_USAGE_URL: &str = "https://chatgpt.com/backend-api/wham/usage";
+pub(crate) const CODEX_API_BASE_URL: &str = "https://api.openai.com";
 
 const CODEX_SCOPES: &[&str] = &["openid", "email", "profile", "offline_access"];
 
@@ -350,4 +353,31 @@ fn should_refresh_codex(auth: &CodexTokenStorage) -> bool {
         .map(|dt| dt.with_timezone(&Utc))
         .unwrap_or_else(|_| Utc::now());
     expire - Utc::now() < ChronoDuration::days(5)
+}
+
+/// Get valid authentication for Codex proxy requests
+pub(crate) async fn get_valid_auth(
+    ctx: &AgentAuthContext,
+    provider: &Provider,
+) -> Result<AgentAuth, AgentAuthError> {
+    let (auth_path, mut auth): (std::path::PathBuf, CodexTokenStorage) =
+        ctx.load_and_normalize_auth(provider).await?;
+
+    // Refresh if needed (5 days before expiry)
+    if should_refresh_codex(&auth) {
+        auth = refresh_codex_token(ctx, &auth).await?;
+        save_auth_file(&auth_path, &auth).await?;
+    }
+
+    let additional_headers = vec![
+        ("ChatGPT-Account-Id".to_string(), auth.account_id.clone()),
+        ("Originator".to_string(), ORIGINATOR.to_string()),
+    ];
+
+    Ok(AgentAuth {
+        access_token: auth.access_token,
+        api_base_url: CODEX_API_BASE_URL.to_string(),
+        additional_headers,
+        is_oauth_token: true,
+    })
 }

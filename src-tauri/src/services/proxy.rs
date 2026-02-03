@@ -18,8 +18,10 @@ use tokio::sync::{oneshot, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::models::{
-    ApiGroup, Provider, ProviderCategory, RoutingRule, RuleType, VibeMateConfig,
+    AgentProviderType, ApiGroup, Provider, ProviderCategory, ProviderType, RoutingRule, RuleType,
+    VibeMateConfig,
 };
+use crate::services::agent_proxy::{AgentProxyService, transform_claude_oauth_request};
 use crate::storage::ConfigStore;
 
 /// Create HTTP client with proxy support based on config
@@ -65,16 +67,19 @@ pub struct ProxyServer {
     port: AtomicU64,
     request_count: AtomicU64,
     store: Arc<ConfigStore>,
+    agent_proxy: Arc<AgentProxyService>,
     shutdown_tx: RwLock<Option<oneshot::Sender<()>>>,
 }
 
 impl ProxyServer {
     pub fn new(store: Arc<ConfigStore>) -> Self {
+        let agent_proxy = Arc::new(AgentProxyService::new(store.clone()));
         Self {
             is_running: AtomicBool::new(false),
             port: AtomicU64::new(12345),
             request_count: AtomicU64::new(0),
             store,
+            agent_proxy,
             shutdown_tx: RwLock::new(None),
         }
     }
@@ -127,6 +132,7 @@ impl ProxyServer {
         let app_state = AppState {
             server: Arc::clone(self),
             http_client,
+            agent_proxy: Arc::clone(&self.agent_proxy),
         };
 
         let app = Router::new()
@@ -190,6 +196,8 @@ struct AppState {
     server: Arc<ProxyServer>,
     /// HTTP client with global proxy settings
     http_client: Client,
+    /// Agent proxy service for handling Agent provider requests
+    agent_proxy: Arc<AgentProxyService>,
 }
 
 fn should_skip_request_header(name: &header::HeaderName) -> bool {
@@ -268,6 +276,26 @@ async fn generic_proxy_handler(
             ));
         }
     };
+
+    // Handle Agent provider requests
+    if resolved.is_agent {
+        let original_headers: Vec<(String, String)> = parts
+            .headers
+            .iter()
+            .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
+            .collect();
+
+        return handle_agent_request(
+            &state,
+            &resolved.provider,
+            method,
+            &body_bytes,
+            &full_path,
+            "/api",
+            &original_headers,
+        )
+        .await;
+    }
 
     // Ensure we have a valid API base URL (only Model providers have this)
     let api_base_url = match resolved.provider.api_base_url.as_ref() {
@@ -412,6 +440,26 @@ async fn openai_proxy_handler(
                 ));
             }
         };
+
+    // Handle Agent provider requests
+    if resolved.is_agent {
+        let original_headers: Vec<(String, String)> = parts
+            .headers
+            .iter()
+            .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
+            .collect();
+
+        return handle_agent_request(
+            &state,
+            &resolved.provider,
+            method,
+            &body_bytes,
+            &full_path,
+            "/api/openai",
+            &original_headers,
+        )
+        .await;
+    }
 
     // Ensure we have a valid API base URL (only Model providers have this)
     let api_base_url = match resolved.provider.api_base_url.as_ref() {
@@ -561,6 +609,26 @@ async fn anthropic_proxy_handler(
         }
     };
 
+    // Handle Agent provider requests
+    if resolved.is_agent {
+        let original_headers: Vec<(String, String)> = parts
+            .headers
+            .iter()
+            .filter_map(|(k, v)| v.to_str().ok().map(|v| (k.to_string(), v.to_string())))
+            .collect();
+
+        return handle_agent_request(
+            &state,
+            &resolved.provider,
+            method,
+            &body_bytes,
+            &full_path,
+            "/api/anthropic",
+            &original_headers,
+        )
+        .await;
+    }
+
     // Ensure we have a valid API base URL (only Model providers have this)
     let api_base_url = match resolved.provider.api_base_url.as_ref() {
         Some(url) => url,
@@ -653,6 +721,7 @@ struct ResolvedProvider {
     provider: Provider,
     final_model: String,
     model_rewritten: bool,
+    is_agent: bool,
 }
 
 /// Resolve which provider to use based on routing rules and model name
@@ -688,10 +757,12 @@ fn resolve_provider(
                         .unwrap_or_else(|| model.to_string())
                 })
                 .unwrap_or_default();
+            let is_agent = provider.provider_category == ProviderCategory::Agent;
             return Some(ResolvedProvider {
                 provider: provider.clone(),
                 final_model,
                 model_rewritten: rule.model_rewrite.is_some() && model_name.is_some(),
+                is_agent,
             });
         }
     }
@@ -703,10 +774,12 @@ fn resolve_provider(
         .find(|p| p.provider_category == ProviderCategory::Model)
         .or_else(|| config.providers.first())?;
 
+    let is_agent = default_provider.provider_category == ProviderCategory::Agent;
     Some(ResolvedProvider {
         provider: default_provider.clone(),
         final_model: model_name.unwrap_or("").to_string(),
         model_rewritten: false,
+        is_agent,
     })
 }
 
@@ -788,7 +861,7 @@ fn rewrite_model_in_body(body: &Bytes, new_model: &str) -> Vec<u8> {
 
 /// Add authentication header based on provider type
 fn add_auth_header(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest::RequestBuilder {
-    use crate::models::{ModelProviderType, ProviderType};
+    use crate::models::ModelProviderType;
 
     let api_key = match provider.api_key.as_ref() {
         Some(key) => key,
@@ -871,6 +944,111 @@ async fn handle_streaming_response(
     builder
         .body(body)
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
+/// Handle request to an Agent provider
+async fn handle_agent_request(
+    state: &AppState,
+    provider: &Provider,
+    method: Method,
+    body_bytes: &Bytes,
+    full_path: &str,
+    api_prefix: &str,
+    original_headers: &[(String, String)],
+) -> Result<Response<Body>, StatusCode> {
+    tracing::info!(
+        "Routing to Agent provider: {} ({})",
+        provider.name,
+        provider.id
+    );
+
+    // Get agent authentication (includes token refresh if needed)
+    let agent_auth = match state.agent_proxy.get_agent_auth(provider).await {
+        Ok(auth) => auth,
+        Err(e) => {
+            tracing::error!("Failed to get agent auth: {:?}", e);
+            let (status, message) = match &e {
+                crate::services::agent_proxy::AgentProxyError::TokenNotFound => {
+                    (StatusCode::UNAUTHORIZED, "Please login to the agent provider first")
+                }
+                crate::services::agent_proxy::AgentProxyError::RefreshFailed(msg) => {
+                    (StatusCode::UNAUTHORIZED, msg.as_str())
+                }
+                crate::services::agent_proxy::AgentProxyError::Auth(auth_err) => {
+                    let msg = auth_err.to_string();
+                    if msg.contains("not found") || msg.contains("login") {
+                        (StatusCode::UNAUTHORIZED, "Please login to the agent provider first")
+                    } else {
+                        (StatusCode::BAD_GATEWAY, "Authentication error with agent")
+                    }
+                }
+                _ => (StatusCode::BAD_GATEWAY, "Failed to authenticate with agent"),
+            };
+            return Ok(error_response(status, message));
+        }
+    };
+
+    // Build target URL using agent's API base
+    let target_url = state
+        .agent_proxy
+        .build_agent_url(&agent_auth, full_path, api_prefix);
+
+    tracing::debug!(
+        "Agent request URL: {} (OAuth: {})",
+        target_url,
+        agent_auth.is_oauth_token
+    );
+
+    // Prepare request body - for Claude Code OAuth, transform tool names
+    let final_body = if agent_auth.is_oauth_token {
+        if let ProviderType::Agent(AgentProviderType::ClaudeCode) = &provider.provider_type {
+            transform_claude_oauth_request(body_bytes)
+        } else {
+            body_bytes.to_vec()
+        }
+    } else {
+        body_bytes.to_vec()
+    };
+
+    // Execute the request
+    let response = match state
+        .agent_proxy
+        .execute_request(
+            &state.http_client,
+            &agent_auth,
+            reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap_or(reqwest::Method::POST),
+            &target_url,
+            final_body,
+            original_headers,
+        )
+        .await
+    {
+        Ok(resp) => {
+            tracing::info!("Received response from agent: {}", resp.status());
+            resp
+        }
+        Err(e) => {
+            tracing::error!("Failed to forward request to agent: {:?}", e);
+            return Ok(error_response(
+                StatusCode::BAD_GATEWAY,
+                &format!("Failed to connect to agent: {:?}", e),
+            ));
+        }
+    };
+
+    // Check if it's a streaming response
+    let is_streaming = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|ct| ct.contains("text/event-stream"))
+        .unwrap_or(false);
+
+    if is_streaming {
+        handle_streaming_response(response).await
+    } else {
+        handle_regular_response(response).await
+    }
 }
 
 /// Create an error response

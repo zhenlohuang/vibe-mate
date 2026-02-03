@@ -11,7 +11,7 @@ use crate::models::{AgentProviderType, AgentQuota, AgentType, Provider};
 pub use claude_code::ClaudeCodeAgent;
 pub use codex::CodexAgent;
 pub use gemini_cli::GeminiCliAgent;
-pub use auth::{AgentAuthContext, AgentAuthError, AuthFlowStart};
+pub use auth::{AgentAuth, AgentAuthContext, AgentAuthError, AuthFlowStart};
 
 #[derive(Debug, Clone)]
 pub struct AgentMetadata {
@@ -124,5 +124,19 @@ pub async fn get_agent_quota(
         AgentProviderType::ClaudeCode => claude_code::get_quota(ctx, provider).await,
         AgentProviderType::GeminiCli => gemini_cli::get_quota(ctx, provider).await,
         AgentProviderType::Antigravity => antigravity::get_quota(ctx, provider).await,
+    }
+}
+
+/// Get valid authentication for proxy requests to an Agent provider
+pub async fn get_agent_auth(
+    ctx: &AgentAuthContext,
+    provider: &Provider,
+    agent_type: &AgentProviderType,
+) -> Result<AgentAuth, AgentAuthError> {
+    match agent_type {
+        AgentProviderType::Codex => codex::get_valid_auth(ctx, provider).await,
+        AgentProviderType::ClaudeCode => claude_code::get_valid_auth(ctx, provider).await,
+        AgentProviderType::GeminiCli => gemini_cli::get_valid_auth(ctx, provider).await,
+        AgentProviderType::Antigravity => antigravity::get_valid_auth(ctx, provider).await,
     }
 }

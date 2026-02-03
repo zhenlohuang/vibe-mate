@@ -8,7 +8,7 @@ use tracing::{info, warn};
 use crate::agents::auth::{
     auth_path_for_provider_id, build_google_auth_url, exchange_google_code, parse_google_id_token,
     parse_rfc3339_to_epoch, refresh_google_token, save_auth_file, should_refresh_google,
-    AgentAuthContext, AgentAuthError, AuthFlowStart,
+    AgentAuth, AgentAuthContext, AgentAuthError, AuthFlowStart,
 };
 use crate::models::{AgentQuota, AgentQuotaEntry, Provider, ProviderStatus};
 
@@ -24,6 +24,7 @@ const ANTIGRAVITY_LOAD_CODE_ASSIST_URL: &str =
     "https://cloudcode-pa.googleapis.com/v1internal:loadCodeAssist";
 const ANTIGRAVITY_ONBOARD_USER_URL: &str =
     "https://cloudcode-pa.googleapis.com/v1internal:onboardUser";
+pub(crate) const ANTIGRAVITY_API_BASE_URL: &str = "https://cloudcode-pa.googleapis.com";
 
 const ANTIGRAVITY_SCOPES: &[&str] = &[
     "openid",
@@ -401,4 +402,33 @@ fn project_ref_to_id(project: ProjectRef) -> Option<String> {
         ProjectRef::String(value) => Some(value),
         ProjectRef::Object { id } => Some(id),
     }
+}
+
+/// Get valid authentication for Antigravity proxy requests
+pub(crate) async fn get_valid_auth(
+    ctx: &AgentAuthContext,
+    provider: &Provider,
+) -> Result<AgentAuth, AgentAuthError> {
+    let (auth_path, mut auth): (std::path::PathBuf, AntigravityTokenStorage) =
+        ctx.load_and_normalize_auth(provider).await?;
+
+    // Refresh if needed (50 minutes before expiry)
+    if should_refresh_google(&auth.timestamp, auth.expires_in) {
+        auth = refresh_antigravity_token(ctx, &auth).await?;
+        save_auth_file(&auth_path, &auth).await?;
+    }
+
+    let additional_headers = vec![
+        (
+            "User-Agent".to_string(),
+            "antigravity/1.11.3 Darwin/arm64".to_string(),
+        ),
+    ];
+
+    Ok(AgentAuth {
+        access_token: auth.access_token,
+        api_base_url: ANTIGRAVITY_API_BASE_URL.to_string(),
+        additional_headers,
+        is_oauth_token: true,
+    })
 }
