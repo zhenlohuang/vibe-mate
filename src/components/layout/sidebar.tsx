@@ -6,7 +6,6 @@ import {
   GitMerge,
   Bot,
   LayoutDashboard,
-  Gauge,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAppStore } from "@/stores/app-store";
@@ -20,20 +19,14 @@ interface SidebarItem {
 
 const menuItems: SidebarItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, href: "/" },
+  { id: "agents", label: "Coding Agents", icon: Bot, href: "/agents" },
   {
     id: "providers",
     label: "Providers",
     icon: Server,
     href: "/providers",
   },
-  {
-    id: "quota",
-    label: "Quota",
-    icon: Gauge,
-    href: "/quota",
-  },
   { id: "router", label: "Routing Rules", icon: GitMerge, href: "/router" },
-  { id: "agents", label: "Coding Agents", icon: Bot, href: "/agents" },
   {
     id: "preferences",
     label: "Preferences",

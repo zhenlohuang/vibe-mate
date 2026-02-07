@@ -7,9 +7,9 @@ import { useProxyStatus } from "@/hooks/use-tauri";
 import {
   DashboardPage,
   ProvidersPage,
-  QuotaPage,
   RouterPage,
   AgentsPage,
+  AgentConfigPage,
   SettingsPage,
 } from "@/pages";
 
@@ -40,9 +40,9 @@ function App() {
             <Routes>
               <Route path="/" element={<DashboardPage />} />
               <Route path="/providers" element={<ProvidersPage />} />
-              <Route path="/quota" element={<QuotaPage />} />
               <Route path="/router" element={<RouterPage />} />
               <Route path="/agents" element={<AgentsPage />} />
+              <Route path="/agents/:agentType/config" element={<AgentConfigPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               {/* Legacy route redirects */}
               <Route path="/general" element={<Navigate to="/settings" replace />} />

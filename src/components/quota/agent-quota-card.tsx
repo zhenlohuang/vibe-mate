@@ -1,6 +1,7 @@
+import { Link } from "react-router-dom";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
-import { LogIn, Loader2, RefreshCw } from "lucide-react";
+import { LogIn, Loader2, RefreshCw, Settings2 } from "lucide-react";
 import type { AgentAccountInfo, AgentQuota, AgentQuotaEntry, AgentProviderType } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -15,6 +16,10 @@ interface AgentQuotaCardProps {
   quota?: AgentQuota | null;
   quotaError?: string | null;
   onRefresh?: (agentType: AgentProviderType) => Promise<void> | void;
+  /** When set, shows a config icon in the bottom-right that links to this path. */
+  configHref?: string;
+  /** When false, the config icon is hidden (e.g. for not-installed agents). */
+  showConfigIcon?: boolean;
 }
 
 function getStatusConfig(authenticated: boolean) {
@@ -29,6 +34,8 @@ export function AgentQuotaCard({
   quota,
   quotaError,
   onRefresh,
+  configHref,
+  showConfigIcon = false,
 }: AgentQuotaCardProps) {
   const isLoggedIn = account.isAuthenticated;
   const statusConfig = getStatusConfig(isLoggedIn);
@@ -299,6 +306,17 @@ export function AgentQuotaCard({
             </>
           )}
         </CardContent>
+        {showConfigIcon && configHref ? (
+          <div className="absolute bottom-1.5 right-2">
+            <Link
+              to={configHref}
+              className="inline-flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              aria-label={`Configure ${label}`}
+            >
+              <Settings2 className="h-4 w-4" />
+            </Link>
+          </div>
+        ) : null}
       </Card>
     </motion.div>
   );
