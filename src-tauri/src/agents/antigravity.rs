@@ -5,12 +5,41 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tracing::{info, warn};
 
-use crate::agents::auth::{
-    auth_path_for_agent_type, build_google_auth_url, exchange_google_code, parse_google_id_token,
-    parse_rfc3339_to_epoch, refresh_google_token, save_auth_file, should_refresh_google,
-    AgentAuthContext, AgentAuthError, AuthFlowStart,
+use crate::agents::{
+    auth::{
+        auth_path_for_agent_type, build_google_auth_url, exchange_google_code, parse_google_id_token,
+        parse_rfc3339_to_epoch, refresh_google_token, save_auth_file, should_refresh_google,
+        AgentAuthContext, AgentAuthError, AuthFlowStart,
+    },
+    binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentProviderType, AgentQuota, AgentQuotaEntry};
+use crate::models::{AgentProviderType, AgentQuota, AgentQuotaEntry, AgentType};
+
+pub struct AntigravityAgent;
+
+impl AntigravityAgent {
+    pub const METADATA: AgentMetadata = AgentMetadata {
+        agent_type: AgentType::Antigravity,
+        name: "Antigravity",
+        binary: "antigravity",
+        default_config_file: "~/.antigravity/settings.json",
+        default_auth_file: "~/.vibemate/auth/antigravity.json",
+    };
+}
+
+impl CodingAgentDefinition for AntigravityAgent {
+    fn metadata(&self) -> &'static AgentMetadata {
+        &Self::METADATA
+    }
+
+    fn is_installed(&self) -> bool {
+        binary_is_installed(Self::METADATA.binary)
+    }
+
+    fn get_version(&self) -> Option<String> {
+        resolve_binary_version(Self::METADATA.binary)
+    }
+}
 
 const ANTIGRAVITY_CLIENT_ID: &str =
     "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";

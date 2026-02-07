@@ -1,4 +1,4 @@
-export type AgentType = "ClaudeCode" | "Codex" | "GeminiCLI";
+export type AgentType = "ClaudeCode" | "Codex" | "GeminiCLI" | "Antigravity";
 
 export type AgentStatus =
   | "Installed"

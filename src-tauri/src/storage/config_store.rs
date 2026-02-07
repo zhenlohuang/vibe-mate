@@ -40,16 +40,41 @@ impl ConfigStore {
         Ok(())
     }
 
-    /// Load configuration from file. Migrates legacy config (e.g. drops Agent providers).
+    /// Migrate legacy proxy settings (proxyHost + proxyPort) to proxyUrl
+    fn migrate_proxy_config(raw: &mut serde_json::Value) {
+        if let Some(app) = raw.get_mut("app") {
+            let has_proxy_url = app.get("proxyUrl").and_then(|v| v.as_str()).is_some();
+            if !has_proxy_url {
+                let host = app.get("proxyHost").and_then(|v| v.as_str()).map(String::from);
+                let port = app.get("proxyPort").and_then(|v| v.as_u64());
+                if let (Some(h), Some(p)) = (host, port) {
+                    if !h.is_empty() {
+                        let proxy_url = format!("http://{}:{}", h, p);
+                        if let Some(obj) = app.as_object_mut() {
+                            obj.insert("proxyUrl".to_string(), serde_json::Value::String(proxy_url));
+                            obj.remove("proxyHost");
+                            obj.remove("proxyPort");
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Load configuration from file. Migrates legacy config (e.g. drops Agent providers, proxy host/port).
     pub async fn load(&self) -> Result<(), StorageError> {
         let path = self.config_path();
         let config = if path.exists() {
             let content = fs::read_to_string(&path).await?;
-            match serde_json::from_str::<VibeMateConfig>(&content) {
+            let mut raw: serde_json::Value = serde_json::from_str(&content)?;
+
+            // Apply migrations on raw JSON before deserializing
+            Self::migrate_proxy_config(&mut raw);
+
+            match serde_json::from_value::<VibeMateConfig>(raw.clone()) {
                 Ok(c) => c,
                 Err(_) => {
                     // Legacy config may contain Agent providers with old type enum; keep only model providers
-                    let raw: serde_json::Value = serde_json::from_str(&content)?;
                     let app = raw
                         .get("app")
                         .and_then(|v| serde_json::from_value(v.clone()).ok())

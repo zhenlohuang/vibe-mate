@@ -16,6 +16,10 @@ export const AGENT_CATALOG: Record<
     name: "Gemini CLI",
     defaultConfigPath: "~/.gemini/settings.json",
   },
+  Antigravity: {
+    name: "Antigravity",
+    defaultConfigPath: "~/.antigravity/settings.json",
+  },
 };
 
 export const AGENT_TYPES = Object.keys(AGENT_CATALOG) as AgentType[];

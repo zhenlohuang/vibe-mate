@@ -35,6 +35,7 @@ export function AgentsPage() {
         ClaudeCode: "https://claude.ai/code",
         Codex: "https://github.com/codexyz/codex",
         GeminiCLI: "https://ai.google.dev/gemini-api/docs/cli",
+        Antigravity: "https://antigravity.codes/download",
       };
 
       const url = installUrls[agentType];

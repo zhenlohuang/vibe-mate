@@ -18,8 +18,7 @@ export function SettingsPage() {
 
   const [formData, setFormData] = useState({
     enableProxy: false,
-    proxyHost: "127.0.0.1",
-    proxyPort: "7890",
+    proxyUrl: "",
     noProxy: "",
   });
 
@@ -27,8 +26,7 @@ export function SettingsPage() {
     if (appConfig) {
       setFormData({
         enableProxy: appConfig.enableProxy || false,
-        proxyHost: appConfig.proxyHost || "127.0.0.1",
-        proxyPort: appConfig.proxyPort?.toString() || "7890",
+        proxyUrl: appConfig.proxyUrl || "",
         noProxy: appConfig.noProxy?.join(", ") || "",
       });
     }
@@ -43,8 +41,7 @@ export function SettingsPage() {
     if (appConfig) {
       setFormData({
         enableProxy: appConfig.enableProxy || false,
-        proxyHost: appConfig.proxyHost || "127.0.0.1",
-        proxyPort: appConfig.proxyPort?.toString() || "7890",
+        proxyUrl: appConfig.proxyUrl || "",
         noProxy: appConfig.noProxy?.join(", ") || "",
       });
     }
@@ -61,8 +58,7 @@ export function SettingsPage() {
 
       const input: UpdateAppConfigInput = {
         enableProxy: formData.enableProxy,
-        proxyHost: formData.proxyHost || null,
-        proxyPort: formData.proxyPort ? parseInt(formData.proxyPort) : null,
+        proxyUrl: formData.proxyUrl || null,
         noProxy: noProxyList,
       };
       await updateConfig(input);
@@ -121,37 +117,25 @@ export function SettingsPage() {
             {formData.enableProxy && (
               <>
                 <Label
-                  htmlFor="proxyHost"
+                  htmlFor="proxyUrl"
                   className="text-xs text-muted-foreground"
                 >
-                  Host
+                  Proxy Address
                 </Label>
-                <Input
-                  id="proxyHost"
-                  value={formData.proxyHost}
-                  onChange={(e) =>
-                    handleFieldChange("proxyHost", e.target.value)
-                  }
-                  placeholder="127.0.0.1"
-                  className="h-8 w-48 font-mono text-sm"
-                />
-
-                <Label
-                  htmlFor="proxyPort"
-                  className="text-xs text-muted-foreground"
-                >
-                  Port
-                </Label>
-                <Input
-                  id="proxyPort"
-                  type="text"
-                  value={formData.proxyPort}
-                  onChange={(e) =>
-                    handleFieldChange("proxyPort", e.target.value)
-                  }
-                  placeholder="7890"
-                  className="h-8 w-24 font-mono text-sm"
-                />
+                <div className="space-y-1">
+                  <Input
+                    id="proxyUrl"
+                    value={formData.proxyUrl}
+                    onChange={(e) =>
+                      handleFieldChange("proxyUrl", e.target.value)
+                    }
+                    placeholder="http://127.0.0.1:7890"
+                    className="h-8 font-mono text-sm"
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Supports http, https, and socks5 protocols (e.g. socks5://127.0.0.1:1080)
+                  </p>
+                </div>
 
                 <Label
                   htmlFor="noProxy"

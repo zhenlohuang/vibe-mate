@@ -8,6 +8,7 @@ use std::process::Command;
 
 use crate::models::{AgentProviderType, AgentQuota, AgentType};
 
+pub use antigravity::AntigravityAgent;
 pub use claude_code::ClaudeCodeAgent;
 pub use codex::CodexAgent;
 pub use gemini_cli::GeminiCliAgent;
@@ -58,12 +59,18 @@ pub(crate) fn binary_is_installed(binary: &str) -> bool {
         .unwrap_or(false)
 }
 
+static ANTIGRAVITY_AGENT: AntigravityAgent = AntigravityAgent;
 static CLAUDE_CODE_AGENT: ClaudeCodeAgent = ClaudeCodeAgent;
 static CODEX_AGENT: CodexAgent = CodexAgent;
 static GEMINI_CLI_AGENT: GeminiCliAgent = GeminiCliAgent;
 
 pub fn all_agent_definitions() -> Vec<&'static dyn CodingAgentDefinition> {
-    vec![&CLAUDE_CODE_AGENT, &CODEX_AGENT, &GEMINI_CLI_AGENT]
+    vec![
+        &CLAUDE_CODE_AGENT,
+        &CODEX_AGENT,
+        &GEMINI_CLI_AGENT,
+        &ANTIGRAVITY_AGENT,
+    ]
 }
 
 pub fn agent_definition(agent_type: &AgentType) -> &'static dyn CodingAgentDefinition {
@@ -71,6 +78,7 @@ pub fn agent_definition(agent_type: &AgentType) -> &'static dyn CodingAgentDefin
         AgentType::ClaudeCode => &CLAUDE_CODE_AGENT,
         AgentType::Codex => &CODEX_AGENT,
         AgentType::GeminiCLI => &GEMINI_CLI_AGENT,
+        AgentType::Antigravity => &ANTIGRAVITY_AGENT,
     }
 }
 

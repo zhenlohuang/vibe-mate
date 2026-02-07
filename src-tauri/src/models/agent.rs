@@ -7,6 +7,7 @@ pub enum AgentType {
     ClaudeCode,
     Codex,
     GeminiCLI,
+    Antigravity,
 }
 
 

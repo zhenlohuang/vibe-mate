@@ -8,8 +8,7 @@ use super::{Provider, RoutingRule};
 #[serde(default)]
 pub struct AppConfig {
     pub enable_proxy: bool,
-    pub proxy_host: Option<String>,
-    pub proxy_port: Option<u16>,
+    pub proxy_url: Option<String>,
     pub no_proxy: Vec<String>,
     pub updated_at: DateTime<Utc>,
 }
@@ -18,8 +17,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             enable_proxy: false,
-            proxy_host: None,
-            proxy_port: None,
+            proxy_url: None,
             no_proxy: Vec::new(),
             updated_at: Utc::now(),
         }
@@ -30,8 +28,7 @@ impl Default for AppConfig {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAppConfigInput {
     pub enable_proxy: Option<bool>,
-    pub proxy_host: Option<String>,
-    pub proxy_port: Option<u16>,
+    pub proxy_url: Option<String>,
     pub no_proxy: Option<Vec<String>>,
 }
 

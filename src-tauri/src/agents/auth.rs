@@ -95,11 +95,8 @@ impl AgentAuthContext {
         let mut builder = reqwest::Client::builder();
 
         if config.app.enable_proxy {
-            let host = config.app.proxy_host.clone().unwrap_or_default();
-            let port = config.app.proxy_port.unwrap_or_default();
-            if !host.is_empty() && port > 0 {
-                let proxy_url = format!("http://{}:{}", host, port);
-                let mut proxy = Proxy::all(&proxy_url)
+            if let Some(proxy_url) = &config.app.proxy_url {
+                let mut proxy = Proxy::all(proxy_url)
                     .map_err(|err| AgentAuthError::Parse(err.to_string()))?;
                 if !config.app.no_proxy.is_empty() {
                     let no_proxy = NoProxy::from_string(&config.app.no_proxy.join(","));
@@ -108,7 +105,7 @@ impl AgentAuthContext {
                 builder = builder.proxy(proxy);
                 debug!("Using proxy {} for agent auth requests", proxy_url);
             } else {
-                warn!("Proxy enabled but host/port not configured");
+                warn!("Proxy enabled but proxy URL not configured");
             }
         }
 

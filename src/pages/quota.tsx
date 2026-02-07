@@ -4,19 +4,32 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import { AgentQuotaCard } from "@/components/quota";
 import { useAgentAuth } from "@/hooks/use-agent-auth";
-import { AGENT_TYPES } from "@/lib/constants";
+import { useAgents } from "@/hooks/use-agents";
+import { AGENT_TYPES, agentTypeToProviderType } from "@/lib/constants";
 import type { AgentProviderType, AgentQuota } from "@/types";
 import { Button } from "@/components/ui/button";
 import { containerVariants, itemVariants } from "@/lib/animations";
-import { cn } from "@/lib/utils";
 
 export function QuotaPage() {
-  const { accounts, isLoading, refetch, getQuota } = useAgentAuth();
+  const { accounts, isLoading: isAuthLoading, refetch, getQuota } = useAgentAuth();
+  const { agents, isLoading: isAgentsLoading } = useAgents();
   const [hasRefreshedOnLoad, setHasRefreshedOnLoad] = useState(false);
   const [quotaByAgentType, setQuotaByAgentType] = useState<Record<string, AgentQuota | null>>({});
   const [quotaErrorByAgentType, setQuotaErrorByAgentType] = useState<Record<string, string | null>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [activeGroupType, setActiveGroupType] = useState<string | null>(null);
+
+  const isLoading = isAuthLoading || isAgentsLoading;
+
+  // Build a set of installed agent provider types from discovered agents
+  const installedProviderTypes = useMemo(() => {
+    const set = new Set<AgentProviderType>();
+    for (const agent of agents) {
+      if (agent.status !== "NotInstalled") {
+        set.add(agentTypeToProviderType(agent.agentType));
+      }
+    }
+    return set;
+  }, [agents]);
 
   const accountByType = useMemo(() => {
     const map = new Map<AgentProviderType, (typeof accounts)[0]>();
@@ -24,8 +37,11 @@ export function QuotaPage() {
     return map;
   }, [accounts]);
 
-  const orderedGroups = useMemo(() => {
-    return AGENT_TYPES.map((agent) => ({
+  // Only show agents that are installed
+  const visibleAgents = useMemo(() => {
+    return AGENT_TYPES.filter((agent) =>
+      installedProviderTypes.has(agent.value as AgentProviderType),
+    ).map((agent) => ({
       type: agent.value as AgentProviderType,
       label: agent.label,
       account: accountByType.get(agent.value as AgentProviderType) ?? {
@@ -34,15 +50,7 @@ export function QuotaPage() {
         email: null,
       },
     }));
-  }, [accountByType]);
-
-  const resolvedGroupType =
-    activeGroupType && orderedGroups.some((g) => g.type === activeGroupType)
-      ? activeGroupType
-      : orderedGroups[0]?.type ?? null;
-  const activeGroup = resolvedGroupType
-    ? orderedGroups.find((g) => g.type === resolvedGroupType) ?? null
-    : null;
+  }, [installedProviderTypes, accountByType]);
 
   const loadQuotaForAgentType = useCallback(
     async (agentType: AgentProviderType) => {
@@ -58,11 +66,11 @@ export function QuotaPage() {
   );
 
   const refreshAllQuotas = useCallback(async () => {
-    const refreshable = orderedGroups.filter(
+    const refreshable = visibleAgents.filter(
       (g) => g.account.isAuthenticated && g.account.agentType !== "GeminiCli",
     );
     await Promise.all(refreshable.map((g) => loadQuotaForAgentType(g.account.agentType)));
-  }, [orderedGroups, loadQuotaForAgentType]);
+  }, [visibleAgents, loadQuotaForAgentType]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -84,7 +92,7 @@ export function QuotaPage() {
     return (
       <MainContent
         title="Quota"
-        description="Track agent usage limits grouped by provider type."
+        description="Track agent usage limits."
       >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -96,38 +104,13 @@ export function QuotaPage() {
   return (
     <MainContent
       title="Quota"
-      description="Track agent usage limits grouped by provider type."
+      description="Track agent usage limits."
     >
-      <div className="mb-6 flex flex-wrap items-center gap-3">
-        {orderedGroups.length > 1 ? (
-          <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[220px]">
-            {orderedGroups.map((group) => {
-              const isActive = group.type === resolvedGroupType;
-              return (
-                <button
-                  key={group.type}
-                  type="button"
-                  onClick={() => setActiveGroupType(group.type)}
-                  className={cn(
-                    "flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors",
-                    isActive
-                      ? "border-primary/50 bg-primary/10 text-foreground"
-                      : "border-border/60 bg-card/50 text-muted-foreground hover:text-foreground",
-                  )}
-                  aria-pressed={isActive}
-                >
-                  <span className="truncate">{group.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="flex-1 min-w-[220px]" />
-        )}
+      <div className="mb-6 flex items-center justify-end">
         <Button
           size="sm"
           variant="secondary"
-          className="ml-auto h-8 gap-2 px-3 text-[10px] uppercase tracking-wider"
+          className="h-8 gap-2 px-3 text-[10px] uppercase tracking-wider"
           onClick={handleRefresh}
           disabled={isRefreshing}
         >
@@ -140,35 +123,32 @@ export function QuotaPage() {
         </Button>
       </div>
 
-      <div className="space-y-5">
-        {activeGroup ? (
-          <section className="space-y-3">
-            <motion.div
-              key={resolvedGroupType ?? "empty"}
-              variants={containerVariants}
-              initial={false}
-              animate="show"
-              className="grid gap-4 grid-cols-1"
-            >
-              <AnimatePresence mode="popLayout">
-                <motion.div key={activeGroup.type} variants={itemVariants} layout initial={false}>
-                  <AgentQuotaCard
-                    account={activeGroup.account}
-                    label={activeGroup.label}
-                    quota={quotaByAgentType[activeGroup.type] ?? null}
-                    quotaError={quotaErrorByAgentType[activeGroup.type] ?? null}
-                    onRefresh={loadQuotaForAgentType}
-                  />
-                </motion.div>
-              </AnimatePresence>
-            </motion.div>
-          </section>
-        ) : (
-          <div className="rounded-lg border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center text-sm text-muted-foreground">
-            No agent types configured.
-          </div>
-        )}
-      </div>
+      {visibleAgents.length > 0 ? (
+        <motion.div
+          variants={containerVariants}
+          initial={false}
+          animate="show"
+          className="grid gap-4 grid-cols-1 md:grid-cols-2"
+        >
+          <AnimatePresence mode="popLayout">
+            {visibleAgents.map((agent) => (
+              <motion.div key={agent.type} variants={itemVariants} layout initial={false}>
+                <AgentQuotaCard
+                  account={agent.account}
+                  label={agent.label}
+                  quota={quotaByAgentType[agent.type] ?? null}
+                  quotaError={quotaErrorByAgentType[agent.type] ?? null}
+                  onRefresh={loadQuotaForAgentType}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </motion.div>
+      ) : (
+        <div className="rounded-lg border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center text-sm text-muted-foreground">
+          No coding agents detected. Install a supported agent (Claude Code, Codex, or Gemini CLI) to see quota information.
+        </div>
+      )}
     </MainContent>
   );
 }

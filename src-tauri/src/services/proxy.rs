@@ -25,11 +25,10 @@ fn create_http_client(config: &VibeMateConfig) -> Client {
     let mut builder = Client::builder().timeout(std::time::Duration::from_secs(300));
 
     if config.app.enable_proxy {
-        if let (Some(host), Some(port)) = (&config.app.proxy_host, config.app.proxy_port) {
-            let proxy_url = format!("http://{}:{}", host, port);
+        if let Some(proxy_url) = &config.app.proxy_url {
             tracing::info!("Creating HTTP client with proxy: {}", proxy_url);
 
-            match reqwest::Proxy::all(&proxy_url) {
+            match reqwest::Proxy::all(proxy_url) {
                 Ok(mut proxy) => {
                     // Configure no_proxy list
                     if !config.app.no_proxy.is_empty() {
@@ -46,7 +45,7 @@ fn create_http_client(config: &VibeMateConfig) -> Client {
                 }
             }
         } else {
-            tracing::warn!("Proxy enabled but host/port not configured");
+            tracing::warn!("Proxy enabled but proxy URL not configured");
             builder = builder.no_proxy();
         }
     } else {

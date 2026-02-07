@@ -1,15 +1,13 @@
 export interface AppConfig {
   enableProxy: boolean;
-  proxyHost: string | null;
-  proxyPort: number | null;
+  proxyUrl: string | null;
   noProxy: string[];
   updatedAt: string;
 }
 
 export interface UpdateAppConfigInput {
   enableProxy?: boolean;
-  proxyHost?: string | null;
-  proxyPort?: number | null;
+  proxyUrl?: string | null;
   noProxy?: string[];
 }
 

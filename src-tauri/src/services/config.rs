@@ -30,11 +30,8 @@ impl ConfigService {
                 if let Some(enable_proxy) = input.enable_proxy {
                     config.app.enable_proxy = enable_proxy;
                 }
-                if let Some(proxy_host) = input.proxy_host.clone() {
-                    config.app.proxy_host = Some(proxy_host);
-                }
-                if let Some(proxy_port) = input.proxy_port {
-                    config.app.proxy_port = Some(proxy_port);
+                if let Some(proxy_url) = input.proxy_url.clone() {
+                    config.app.proxy_url = Some(proxy_url);
                 }
                 if let Some(no_proxy) = input.no_proxy.clone() {
                     config.app.no_proxy = no_proxy;
@@ -55,7 +52,7 @@ impl ConfigService {
         // For now, we'll just simulate a latency test
         // In production, you'd actually test network connectivity
         let success = if config.app.enable_proxy {
-            config.app.proxy_host.is_some() && config.app.proxy_port.is_some()
+            config.app.proxy_url.is_some()
         } else {
             true
         };

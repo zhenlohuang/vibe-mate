@@ -140,7 +140,12 @@ export function AgentQuotaCard({
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <ProviderLogo type={agentType} />
-              <span className="text-sm font-semibold truncate">{label}</span>
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold truncate">{label}</span>
+                {isLoggedIn && account.email ? (
+                  <span className="text-[10px] text-muted-foreground truncate">{account.email}</span>
+                ) : null}
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <div
@@ -193,15 +198,6 @@ export function AgentQuotaCard({
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <div className="flex flex-col gap-1">
-                  <span className="uppercase tracking-wider">Authenticated</span>
-                  {account.email ? (
-                    <span className="truncate text-foreground/80">{account.email}</span>
-                  ) : null}
-                </div>
-              </div>
-
               {!isQuotaSupported ? (
                 <div className="rounded-md border border-border/60 bg-muted/40 px-2 py-2 text-[10px] text-muted-foreground">
                   Usage is not available for this agent yet.
