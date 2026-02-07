@@ -6,9 +6,15 @@ export function useAgents() {
   const [agents, setAgents] = useState<CodingAgent[] | null>(null);
 
   const fetchAgents = useCallback(async () => {
-    const discoveredAgents = await invoke<CodingAgent[]>("discover_agents");
-    setAgents(discoveredAgents);
-    return discoveredAgents;
+    const list = await invoke<CodingAgent[]>("get_coding_agents");
+    setAgents(list);
+    return list;
+  }, []);
+
+  const refetchAgents = useCallback(async () => {
+    const list = await invoke<CodingAgent[]>("refresh_coding_agents");
+    setAgents(list);
+    return list;
   }, []);
 
   useEffect(() => {
@@ -24,6 +30,7 @@ export function useAgents() {
     agents: agents || [],
     isLoading: !agents,
     checkStatus,
-    refetch: fetchAgents,
+    refetch: refetchAgents,
+    fetchAgents,
   };
 }

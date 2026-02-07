@@ -14,4 +14,6 @@ export interface CodingAgent {
   executablePath?: string | null;
   configPath: string | null;
   authPath?: string | null;
+  /** Whether to show this agent on the Dashboard. Default true when new or missing. */
+  featured?: boolean;
 }

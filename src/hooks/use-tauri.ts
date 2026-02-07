@@ -1,7 +1,12 @@
 import { useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useAppStore } from "@/stores/app-store";
-import type { ProxyStatus, AppConfig, UpdateAppConfigInput, LatencyResult } from "@/types";
+import type {
+  ProxyStatus,
+  AppConfig,
+  UpdateAppConfigInput,
+  LatencyResult,
+} from "@/types";
 
 // Hook for proxy status
 export function useProxyStatus() {

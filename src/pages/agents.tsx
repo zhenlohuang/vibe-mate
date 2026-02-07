@@ -7,7 +7,7 @@ import { useAgentAuth } from "@/hooks/use-agent-auth";
 import { useAgents } from "@/hooks/use-agents";
 import { useToast } from "@/hooks/use-toast";
 import { agentTypeToProviderType } from "@/lib/constants";
-import { AGENT_TYPES, getAgentName } from "@/lib/agents";
+import { getAgentName } from "@/lib/agents";
 import type { AgentType, AgentProviderType, AgentQuota } from "@/types";
 import { containerVariants, itemVariants } from "@/lib/animations";
 
@@ -21,12 +21,6 @@ export function AgentsPage() {
   const [refreshingAgentTypes, setRefreshingAgentTypes] = useState<Set<AgentProviderType>>(new Set());
 
   const isLoading = isAuthLoading || isAgentsLoading;
-
-  const discoveredAgentsMap = useMemo(() => {
-    const map = new Map<AgentType, (typeof agents)[0]>();
-    agents.forEach((a) => map.set(a.agentType, a));
-    return map;
-  }, [agents]);
 
   const accountByType = useMemo(() => {
     const map = new Map<AgentProviderType, (typeof accounts)[0]>();
@@ -162,10 +156,10 @@ export function AgentsPage() {
         style={{ gridAutoRows: "minmax(200px, auto)" }}
       >
         <AnimatePresence mode="popLayout">
-          {AGENT_TYPES.map((agentType) => {
+          {agents.map((agent) => {
+            const agentType = agent.agentType;
             const providerType = agentTypeToProviderType(agentType);
-            const discovered = discoveredAgentsMap.get(agentType);
-            const isInstalled = discovered != null && discovered.status !== "NotInstalled";
+            const isInstalled = agent.status !== "NotInstalled";
             const label = getAgentName(agentType);
             const account =
               accountByType.get(providerType) ?? ({

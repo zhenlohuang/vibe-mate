@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use super::{Provider, RoutingRule};
+use super::{CodingAgent, Provider, RoutingRule};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -32,22 +32,42 @@ pub struct UpdateAppConfigInput {
     pub no_proxy: Option<Vec<String>>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(default)]
+pub struct DashboardConfig {
+    pub featured_agents: Vec<String>,
+}
+
+impl Default for DashboardConfig {
+    fn default() -> Self {
+        Self {
+            featured_agents: Vec::new(),
+        }
+    }
+}
+
 /// Unified configuration file structure (~/.vibemate/settings.json)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 #[serde(rename_all = "camelCase")]
 pub struct VibeMateConfig {
     pub app: AppConfig,
+    pub dashboard: DashboardConfig,
     pub providers: Vec<Provider>,
     pub routing_rules: Vec<RoutingRule>,
+    /// Persisted list of coding agents (discovered at startup); each has a `featured` flag.
+    pub coding_agents: Vec<CodingAgent>,
 }
 
 impl Default for VibeMateConfig {
     fn default() -> Self {
         Self {
             app: AppConfig::default(),
+            dashboard: DashboardConfig::default(),
             providers: Vec::new(),
             routing_rules: Vec::new(),
+            coding_agents: Vec::new(),
         }
     }
 }

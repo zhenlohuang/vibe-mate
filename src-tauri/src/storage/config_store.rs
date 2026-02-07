@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::RwLock;
 
-use crate::models::VibeMateConfig;
+use crate::models::{AgentType, CodingAgent, VibeMateConfig};
 
 const CONFIG_FILE: &str = "settings.json";
 
@@ -93,10 +93,21 @@ impl ConfigStore {
                                 .collect()
                         })
                         .unwrap_or_default();
+                    let dashboard = raw
+                        .get("dashboard")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok())
+                        .unwrap_or_default();
+                    let coding_agents = raw
+                        .get("codingAgents")
+                        .or_else(|| raw.get("coding_agents"))
+                        .and_then(|v| serde_json::from_value(v.clone()).ok())
+                        .unwrap_or_default();
                     VibeMateConfig {
                         app,
+                        dashboard,
                         providers,
                         routing_rules,
+                        coding_agents,
                     }
                 }
             }
@@ -132,6 +143,40 @@ impl ConfigStore {
         }
         self.save().await
     }
+}
+
+/// Merge discovered agents with stored config. Keeps only agents in `discovered` (cleans up removed types).
+/// Preserves `featured` from existing config, or migrates from `dashboard_featured` when existing is empty.
+pub fn merge_coding_agents(
+    existing: &[CodingAgent],
+    discovered: Vec<CodingAgent>,
+    dashboard_featured: &[String],
+) -> Vec<CodingAgent> {
+    let use_dashboard_migration =
+        existing.is_empty() && !dashboard_featured.is_empty();
+    discovered
+        .into_iter()
+        .map(|mut d| {
+            let featured = existing
+                .iter()
+                .find(|e| e.agent_type == d.agent_type)
+                .map(|e| e.featured)
+                .unwrap_or_else(|| {
+                    if use_dashboard_migration {
+                        let key = agent_type_to_config_key(&d.agent_type);
+                        dashboard_featured.iter().any(|s| s == &key)
+                    } else {
+                        true
+                    }
+                });
+            d.featured = featured;
+            d
+        })
+        .collect()
+}
+
+fn agent_type_to_config_key(agent_type: &AgentType) -> String {
+    format!("{:?}", agent_type)
 }
 
 #[cfg(test)]

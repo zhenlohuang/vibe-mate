@@ -5,7 +5,7 @@ mod services;
 mod storage;
 
 use std::sync::Arc;
-use storage::ConfigStore;
+use storage::{merge_coding_agents, ConfigStore};
 use services::{
     AgentAuthService, AgentService, ConfigService, ProviderService, ProxyServer, RouterService,
 };
@@ -50,6 +50,28 @@ pub fn run() {
             
             // Create the proxy server with access to the config store
             let proxy_server = Arc::new(ProxyServer::new(store.clone()));
+
+            // Discover coding agents at startup and merge with stored config (cleans up removed agents)
+            let store_clone = store.clone();
+            let agent_service_clone = agent_service.clone();
+            tauri::async_runtime::block_on(async move {
+                match agent_service_clone.discover_agents().await {
+                    Ok(discovered) => {
+                        let config = store_clone.get_config().await;
+                        let merged = merge_coding_agents(
+                            &config.coding_agents,
+                            discovered,
+                            &config.dashboard.featured_agents,
+                        );
+                        if let Err(e) = store_clone.update(|c| c.coding_agents = merged).await {
+                            tracing::warn!("Failed to save coding agents config: {}", e);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::warn!("Failed to discover coding agents at startup: {}", e);
+                    }
+                }
+            });
 
             // Register services to Tauri state management
             app.manage(store);
@@ -102,6 +124,9 @@ pub fn run() {
             commands::get_config,
             commands::update_config,
             commands::test_latency,
+            commands::get_coding_agents,
+            commands::refresh_coding_agents,
+            commands::set_coding_agent_featured,
             // System commands
             commands::proxy_status,
             commands::start_proxy,
