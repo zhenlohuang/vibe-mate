@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import { AgentQuotaCard, NotInstalledAgentCard } from "@/components/quota";
 import { useAgentAuth } from "@/hooks/use-agent-auth";
@@ -9,17 +9,16 @@ import { useToast } from "@/hooks/use-toast";
 import { agentTypeToProviderType } from "@/lib/constants";
 import { AGENT_TYPES, getAgentName } from "@/lib/agents";
 import type { AgentType, AgentProviderType, AgentQuota } from "@/types";
-import { Button } from "@/components/ui/button";
 import { containerVariants, itemVariants } from "@/lib/animations";
 
 export function AgentsPage() {
-  const { accounts, isLoading: isAuthLoading, refetch, getQuota } = useAgentAuth();
+  const { accounts, isLoading: isAuthLoading, getQuota } = useAgentAuth();
   const { agents, isLoading: isAgentsLoading } = useAgents();
   const { toast } = useToast();
   const [hasRefreshedOnLoad, setHasRefreshedOnLoad] = useState(false);
   const [quotaByAgentType, setQuotaByAgentType] = useState<Record<string, AgentQuota | null>>({});
   const [quotaErrorByAgentType, setQuotaErrorByAgentType] = useState<Record<string, string | null>>({});
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshingAgentTypes, setRefreshingAgentTypes] = useState<Set<AgentProviderType>>(new Set());
 
   const isLoading = isAuthLoading || isAgentsLoading;
 
@@ -48,34 +47,68 @@ export function AgentsPage() {
     [getQuota],
   );
 
-  const refreshAllQuotas = useCallback(async () => {
-    const installedProviderTypes = new Set<AgentProviderType>();
+  const refreshableTypes = useMemo(() => {
+    const installed = new Set<AgentProviderType>();
     agents.forEach((a) => {
       if (a.status !== "NotInstalled") {
-        installedProviderTypes.add(agentTypeToProviderType(a.agentType));
+        installed.add(agentTypeToProviderType(a.agentType));
       }
     });
-    const refreshable = [...installedProviderTypes].filter(
+    return [...installed].filter(
       (t) => accountByType.get(t)?.isAuthenticated && t !== "GeminiCli",
     );
-    await Promise.all(refreshable.map((t) => loadQuotaForAgentType(t)));
-  }, [agents, accountByType, loadQuotaForAgentType]);
+  }, [agents, accountByType]);
 
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
+  const refreshAllQuotas = useCallback(
+    async (types?: AgentProviderType[]) => {
+      const toRefresh = types ?? refreshableTypes;
+      await Promise.all(toRefresh.map((t) => loadQuotaForAgentType(t)));
+    },
+    [refreshableTypes, loadQuotaForAgentType],
+  );
+
+  const runQuotaRefresh = useCallback(async () => {
+    setRefreshingAgentTypes((prev) => new Set([...prev, ...refreshableTypes]));
     try {
-      await refetch();
       await refreshAllQuotas();
     } finally {
-      setIsRefreshing(false);
+      setRefreshingAgentTypes((prev) => {
+        const next = new Set(prev);
+        refreshableTypes.forEach((t) => next.delete(t));
+        return next;
+      });
     }
-  };
+  }, [refreshAllQuotas, refreshableTypes]);
+
+  const handleCardRefresh = useCallback(
+    async (agentType: AgentProviderType) => {
+      setRefreshingAgentTypes((prev) => new Set(prev).add(agentType));
+      try {
+        await loadQuotaForAgentType(agentType);
+      } finally {
+        setRefreshingAgentTypes((prev) => {
+          const next = new Set(prev);
+          next.delete(agentType);
+          return next;
+        });
+      }
+    },
+    [loadQuotaForAgentType],
+  );
 
   useEffect(() => {
     if (isLoading || hasRefreshedOnLoad) return;
     setHasRefreshedOnLoad(true);
-    void refreshAllQuotas();
-  }, [hasRefreshedOnLoad, isLoading, refreshAllQuotas]);
+    void runQuotaRefresh();
+  }, [hasRefreshedOnLoad, isLoading, runQuotaRefresh]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const interval = setInterval(() => {
+      void runQuotaRefresh();
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [isLoading, runQuotaRefresh]);
 
   const handleInstall = useCallback(
     async (agentType: AgentType) => {
@@ -121,23 +154,6 @@ export function AgentsPage() {
       title="Coding Agents"
       description="Manage agents, view usage, and configure settings."
     >
-      <div className="mb-6 flex items-center justify-end">
-        <Button
-          size="sm"
-          variant="secondary"
-          className="h-8 gap-2 px-3 text-[10px] uppercase tracking-wider"
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-        >
-          {isRefreshing ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <RefreshCw className="h-3.5 w-3.5" />
-          )}
-          Refresh All
-        </Button>
-      </div>
-
       <motion.div
         variants={containerVariants}
         initial={false}
@@ -177,7 +193,8 @@ export function AgentsPage() {
                   label={label}
                   quota={quotaByAgentType[providerType] ?? null}
                   quotaError={quotaErrorByAgentType[providerType] ?? null}
-                  onRefresh={loadQuotaForAgentType}
+                  onRefresh={handleCardRefresh}
+                  isRefreshing={refreshingAgentTypes.has(providerType)}
                   configHref={`/agents/${agentType}/config`}
                   showConfigIcon
                 />

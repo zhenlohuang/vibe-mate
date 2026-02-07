@@ -16,6 +16,8 @@ interface AgentQuotaCardProps {
   quota?: AgentQuota | null;
   quotaError?: string | null;
   onRefresh?: (agentType: AgentProviderType) => Promise<void> | void;
+  /** When true, the card's refresh button shows a spinning state. */
+  isRefreshing?: boolean;
   /** When set, shows a config icon in the bottom-right that links to this path. */
   configHref?: string;
   /** When false, the config icon is hidden (e.g. for not-installed agents). */
@@ -34,6 +36,7 @@ export function AgentQuotaCard({
   quota,
   quotaError,
   onRefresh,
+  isRefreshing = false,
   configHref,
   showConfigIcon = false,
 }: AgentQuotaCardProps) {
@@ -168,10 +171,15 @@ export function AgentQuotaCard({
                 <button
                   type="button"
                   onClick={handleRefresh}
-                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  disabled={isRefreshing}
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none"
                   aria-label={`Refresh ${label}`}
                 >
-                  <RefreshCw className="h-3.5 w-3.5" />
+                  {isRefreshing ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  )}
                 </button>
               ) : null}
             </div>

@@ -1,7 +1,8 @@
-use std::process::Command;
 use std::fs;
 use std::path::PathBuf;
+use std::process::Command;
 
+use futures_util::future::join_all;
 use crate::agents::{agent_definition, agent_metadata, all_agent_definitions};
 use crate::models::{AgentStatus, AgentType, CodingAgent};
 
@@ -18,19 +19,19 @@ impl AgentService {
         Self
     }
 
-    /// Discover all supported coding agents in the system
+    /// Discover all supported coding agents in the system (parallel detection).
     pub async fn discover_agents(&self) -> Result<Vec<CodingAgent>, AgentError> {
-        let mut agents = Vec::new();
-
         let agent_types: Vec<AgentType> = all_agent_definitions()
             .into_iter()
             .map(|definition| definition.metadata().agent_type.clone())
             .collect();
 
-        for agent_type in agent_types {
-            let agent = self.check_agent(&agent_type).await;
-            agents.push(agent);
-        }
+        let agents = join_all(
+            agent_types
+                .iter()
+                .map(|agent_type| self.check_agent(agent_type)),
+        )
+        .await;
 
         Ok(agents)
     }
