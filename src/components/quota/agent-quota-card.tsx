@@ -1,76 +1,51 @@
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
 import { LogIn, Loader2, RefreshCw } from "lucide-react";
-import type { Provider, AgentQuota, AgentQuotaEntry } from "@/types";
+import type { AgentAccountInfo, AgentQuota, AgentQuotaEntry, AgentProviderType } from "@/types";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ProviderLogo } from "@/components/providers/provider-logo";
-import { useProviderStore } from "@/stores/provider-store";
+import { useAgentAuthStore } from "@/stores/agent-auth-store";
 import { useToast } from "@/hooks/use-toast";
 
 interface AgentQuotaCardProps {
-  provider: Provider;
+  account: AgentAccountInfo;
+  label: string;
   quota?: AgentQuota | null;
   quotaError?: string | null;
-  onRefresh?: (providerId: string) => Promise<void> | void;
+  onRefresh?: (agentType: AgentProviderType) => Promise<void> | void;
 }
 
-function getStatusConfig(status: Provider["status"]) {
-  switch (status) {
-    case "Connected":
-      return {
-        label: "ACTIVE",
-        className: "bg-success/20 text-success",
-        dotClassName: "bg-success",
-      };
-    case "Disconnected":
-      return {
-        label: "INACTIVE",
-        className: "bg-muted text-muted-foreground",
-        dotClassName: "bg-muted-foreground",
-      };
-    case "Error":
-      return {
-        label: "ERROR",
-        className: "bg-destructive/20 text-destructive",
-        dotClassName: "bg-destructive",
-      };
-    default:
-      return {
-        label: "INACTIVE",
-        className: "bg-muted text-muted-foreground",
-        dotClassName: "bg-muted-foreground",
-      };
-  }
+function getStatusConfig(authenticated: boolean) {
+  return authenticated
+    ? { label: "ACTIVE", className: "bg-success/20 text-success", dotClassName: "bg-success" }
+    : { label: "INACTIVE", className: "bg-muted text-muted-foreground", dotClassName: "bg-muted-foreground" };
 }
 
 export function AgentQuotaCard({
-  provider,
+  account,
+  label,
   quota,
   quotaError,
   onRefresh,
 }: AgentQuotaCardProps) {
-  const isLoggedIn = provider.status === "Connected";
-  const statusConfig = getStatusConfig(provider.status);
-  const isAuthSupported = [
-    "Codex",
-    "ClaudeCode",
-    "GeminiCli",
-    "Antigravity",
-  ].includes(provider.type);
-  const isQuotaSupported = provider.type !== "GeminiCli";
-  const authenticateAgentProvider = useProviderStore(
-    (state) => state.authenticateAgentProvider,
-  );
+  const isLoggedIn = account.isAuthenticated;
+  const statusConfig = getStatusConfig(isLoggedIn);
+  const agentType = account.agentType;
+  const isAuthSupported = true;
+  const isQuotaSupported = agentType !== "GeminiCli";
+  const startAuth = useAgentAuthStore((state) => state.startAuth);
+  const completeAuth = useAgentAuthStore((state) => state.completeAuth);
   const { toast } = useToast();
   const [isAuthLoading, setIsAuthLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
   const resolvedQuotaError = !isAuthSupported
     ? "Usage is not available for this agent yet."
     : quotaError ?? null;
   const quotaLabels = useMemo(() => {
-    switch (provider.type) {
+    switch (agentType) {
       case "Codex":
         return { session: "5h limit", week: "Weekly limit" };
       case "ClaudeCode":
@@ -80,7 +55,7 @@ export function AgentQuotaCard({
       default:
         return { session: "Current Session", week: "Current Week" };
     }
-  }, [provider.type]);
+  }, [agentType]);
   const sessionUsedPercentage = useMemo(() => {
     const used = quota?.sessionUsedPercent ?? 0;
     return Math.min(100, Math.max(0, used));
@@ -93,16 +68,16 @@ export function AgentQuotaCard({
     () => quota?.entries?.filter(Boolean) ?? [],
     [quota?.entries],
   );
-  const hasEntries = provider.type === "Antigravity" && quotaEntries.length > 0;
-  const resetPrefix = provider.type === "ClaudeCode" ? "Resets" : "Resets:";
-  const entryDisplayLimit = provider.type === "Antigravity" ? 2 : quotaEntries.length;
+  const hasEntries = agentType === "Antigravity" && quotaEntries.length > 0;
+  const resetPrefix = agentType === "ClaudeCode" ? "Resets" : "Resets:";
+  const entryDisplayLimit = agentType === "Antigravity" ? 2 : quotaEntries.length;
   const displayedEntries = useMemo(
     () => (isExpanded ? quotaEntries : quotaEntries.slice(0, entryDisplayLimit)),
     [quotaEntries, entryDisplayLimit, isExpanded],
   );
   const remainingEntryCount = Math.max(0, quotaEntries.length - entryDisplayLimit);
   const showExpandToggle =
-    provider.type === "Antigravity" && hasEntries && (remainingEntryCount > 0 || isExpanded);
+    agentType === "Antigravity" && hasEntries && (remainingEntryCount > 0 || isExpanded);
   const entriesContainerClass = "space-y-3";
 
   const formatUsageText = (used: number) => `${used.toFixed(1)}% used`;
@@ -110,7 +85,7 @@ export function AgentQuotaCard({
   const formatResetAt = (timestamp?: number | null) => {
     if (!timestamp) return "—";
     const date = new Date(timestamp * 1000);
-    if (provider.type === "ClaudeCode") {
+    if (agentType === "ClaudeCode") {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       const now = new Date();
       const sameDay = date.toDateString() === now.toDateString();
@@ -127,16 +102,17 @@ export function AgentQuotaCard({
 
   const handleRefresh = async () => {
     if (!isQuotaSupported) return;
-    await onRefresh?.(provider.id);
+    await onRefresh?.(agentType);
   };
 
   const handleLogin = async () => {
     setIsAuthLoading(true);
     try {
-      await authenticateAgentProvider(provider.id);
+      const start = await startAuth(agentType);
+      await completeAuth(start.flowId);
       toast({
         title: "Authentication complete",
-        description: `${provider.name} is now connected.`,
+        description: `${label} is now connected.`,
       });
       await handleRefresh();
     } catch (error) {
@@ -163,8 +139,8 @@ export function AgentQuotaCard({
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <ProviderLogo type={provider.type} />
-              <span className="text-sm font-semibold truncate">{provider.name}</span>
+              <ProviderLogo type={agentType} />
+              <span className="text-sm font-semibold truncate">{label}</span>
             </div>
             <div className="flex items-center gap-2">
               <div
@@ -181,7 +157,7 @@ export function AgentQuotaCard({
                   type="button"
                   onClick={handleRefresh}
                   className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                  aria-label={`Refresh ${provider.name}`}
+                  aria-label={`Refresh ${label}`}
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                 </button>
@@ -220,6 +196,9 @@ export function AgentQuotaCard({
               <div className="flex items-center justify-between text-[10px] text-muted-foreground">
                 <div className="flex flex-col gap-1">
                   <span className="uppercase tracking-wider">Authenticated</span>
+                  {account.email ? (
+                    <span className="truncate text-foreground/80">{account.email}</span>
+                  ) : null}
                 </div>
               </div>
 

@@ -2,21 +2,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ProviderCategory {
-    Model,
-    Agent,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum AgentProviderType {
-    Codex,
-    ClaudeCode,
-    GeminiCli,
-    Antigravity,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub enum ModelProviderType {
+pub enum ProviderType {
     OpenAI,
     Anthropic,
     Google,
@@ -24,34 +10,9 @@ pub enum ModelProviderType {
     Custom,
 }
 
-impl Default for ModelProviderType {
-    fn default() -> Self {
-        Self::OpenAI
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(untagged)]
-pub enum ProviderType {
-    Model(ModelProviderType),
-    Agent(AgentProviderType),
-}
-
 impl Default for ProviderType {
     fn default() -> Self {
-        Self::Model(ModelProviderType::default())
-    }
-}
-
-impl ProviderType {
-    #[allow(dead_code)]
-    pub fn is_model(&self) -> bool {
-        matches!(self, ProviderType::Model(_))
-    }
-
-    #[allow(dead_code)]
-    pub fn is_agent(&self) -> bool {
-        matches!(self, ProviderType::Agent(_))
+        Self::OpenAI
     }
 }
 
@@ -73,8 +34,6 @@ impl Default for ProviderStatus {
 pub struct Provider {
     pub id: String,
     pub name: String,
-    #[serde(rename = "category")]
-    pub provider_category: ProviderCategory,
     #[serde(rename = "type")]
     pub provider_type: ProviderType,
     pub api_base_url: Option<String>,
@@ -87,7 +46,7 @@ pub struct Provider {
 impl Provider {
     pub fn new_model(
         name: String,
-        provider_type: ModelProviderType,
+        provider_type: ProviderType,
         api_base_url: String,
         api_key: String,
     ) -> Self {
@@ -95,25 +54,9 @@ impl Provider {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             name,
-            provider_category: ProviderCategory::Model,
-            provider_type: ProviderType::Model(provider_type),
+            provider_type,
             api_base_url: Some(api_base_url),
             api_key: Some(api_key),
-            status: ProviderStatus::Disconnected,
-            created_at: now,
-            updated_at: now,
-        }
-    }
-
-    pub fn new_agent(name: String, provider_type: AgentProviderType) -> Self {
-        let now = Utc::now();
-        Self {
-            id: uuid::Uuid::new_v4().to_string(),
-            name,
-            provider_category: ProviderCategory::Agent,
-            provider_type: ProviderType::Agent(provider_type),
-            api_base_url: None,
-            api_key: None,
             status: ProviderStatus::Disconnected,
             created_at: now,
             updated_at: now,
@@ -125,8 +68,6 @@ impl Provider {
 #[serde(rename_all = "camelCase")]
 pub struct CreateProviderInput {
     pub name: String,
-    #[serde(rename = "category")]
-    pub provider_category: ProviderCategory,
     #[serde(rename = "type")]
     pub provider_type: ProviderType,
     pub api_base_url: Option<String>,

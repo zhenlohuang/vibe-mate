@@ -1,12 +1,12 @@
 use crate::agents::{
     auth::{
-        auth_path_for_provider_id, build_google_auth_url, exchange_google_code,
+        auth_path_for_agent_type, build_google_auth_url, exchange_google_code,
         parse_google_id_token, refresh_google_token, save_auth_file, should_refresh_google,
         AgentAuthContext, AgentAuthError, AuthFlowStart,
     },
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentQuota, AgentType, Provider, ProviderStatus};
+use crate::models::{AgentProviderType, AgentQuota, AgentType};
 
 use chrono::{Duration as ChronoDuration, Utc};
 use serde::{Deserialize, Serialize};
@@ -80,7 +80,7 @@ pub(crate) fn start_auth_flow(state: &str) -> Result<AuthFlowStart, AgentAuthErr
 
 pub(crate) async fn complete_auth(
     ctx: &AgentAuthContext,
-    provider_id: &str,
+    agent_type: &AgentProviderType,
     _state: &str,
     code: &str,
     _code_verifier: &str,
@@ -120,21 +120,19 @@ pub(crate) async fn complete_auth(
         project_id: None,
     };
 
-    let auth_path = auth_path_for_provider_id(provider_id)?;
+    let auth_path = auth_path_for_agent_type(agent_type)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
-    ctx.update_provider_status(provider_id, ProviderStatus::Connected)
-        .await?;
 
     Ok(())
 }
 
 pub(crate) async fn get_quota(
     ctx: &AgentAuthContext,
-    provider: &Provider,
+    agent_type: &AgentProviderType,
 ) -> Result<AgentQuota, AgentAuthError> {
     let (auth_path, mut auth): (std::path::PathBuf, GeminiTokenStorage) = ctx
-        .load_and_normalize_auth(provider)
+        .load_and_normalize_auth(agent_type)
         .await?;
 
     if should_refresh_google(&auth.timestamp, auth.expires_in) {

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import type { Provider, CreateProviderInput, ModelProviderType } from "@/types";
+import type { Provider, CreateProviderInput, ProviderType } from "@/types";
 import { PROVIDER_TYPES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,7 +39,6 @@ export function ProviderForm({
 
   const [formData, setFormData] = useState<CreateProviderInput>({
     name: "",
-    category: "Model",
     type: "OpenAI",
     apiBaseUrl: "",
     apiKey: "",
@@ -53,16 +52,13 @@ export function ProviderForm({
     if (provider) {
       setFormData({
         name: provider.name,
-        category: provider.category,
         type: provider.type,
         apiBaseUrl: provider.apiBaseUrl || "",
         apiKey: "", // Don't populate API key for security
       });
     } else {
-      // Reset form when switching to create mode
       setFormData({
         name: "",
-        category: "Model",
         type: "OpenAI",
         apiBaseUrl: "",
         apiKey: "",
@@ -96,9 +92,8 @@ export function ProviderForm({
     }
   };
 
-  // Set default API base URL when provider type changes
-  const handleTypeChange = (type: ModelProviderType) => {
-    const defaultUrls: Record<ModelProviderType, string> = {
+  const handleTypeChange = (type: ProviderType) => {
+    const defaultUrls: Record<ProviderType, string> = {
       OpenAI: "https://api.openai.com",
       Anthropic: "https://api.anthropic.com",
       Google: "https://generativelanguage.googleapis.com",
@@ -135,7 +130,7 @@ export function ProviderForm({
             <Select
               value={formData.type}
               onValueChange={(value) =>
-                handleTypeChange(value as ModelProviderType)
+                handleTypeChange(value as ProviderType)
               }
               disabled={isEdit}
             >

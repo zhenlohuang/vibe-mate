@@ -6,11 +6,11 @@ use serde_json::json;
 use tracing::{info, warn};
 
 use crate::agents::auth::{
-    auth_path_for_provider_id, build_google_auth_url, exchange_google_code, parse_google_id_token,
+    auth_path_for_agent_type, build_google_auth_url, exchange_google_code, parse_google_id_token,
     parse_rfc3339_to_epoch, refresh_google_token, save_auth_file, should_refresh_google,
     AgentAuthContext, AgentAuthError, AuthFlowStart,
 };
-use crate::models::{AgentQuota, AgentQuotaEntry, Provider, ProviderStatus};
+use crate::models::{AgentProviderType, AgentQuota, AgentQuotaEntry};
 
 const ANTIGRAVITY_CLIENT_ID: &str =
     "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com";
@@ -115,7 +115,7 @@ pub(crate) fn start_auth_flow(state: &str) -> Result<AuthFlowStart, AgentAuthErr
 
 pub(crate) async fn complete_auth(
     ctx: &AgentAuthContext,
-    provider_id: &str,
+    agent_type: &AgentProviderType,
     _state: &str,
     code: &str,
     _code_verifier: &str,
@@ -156,21 +156,19 @@ pub(crate) async fn complete_auth(
         project_id,
     };
 
-    let auth_path = auth_path_for_provider_id(provider_id)?;
+    let auth_path = auth_path_for_agent_type(agent_type)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
-    ctx.update_provider_status(provider_id, ProviderStatus::Connected)
-        .await?;
 
     Ok(())
 }
 
 pub(crate) async fn get_quota(
     ctx: &AgentAuthContext,
-    provider: &Provider,
+    agent_type: &AgentProviderType,
 ) -> Result<AgentQuota, AgentAuthError> {
     let (auth_path, mut auth): (std::path::PathBuf, AntigravityTokenStorage) = ctx
-        .load_and_normalize_auth(provider)
+        .load_and_normalize_auth(agent_type)
         .await?;
 
     if should_refresh_google(&auth.timestamp, auth.expires_in) {

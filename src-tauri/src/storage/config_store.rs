@@ -40,12 +40,41 @@ impl ConfigStore {
         Ok(())
     }
 
-    /// Load configuration from file
+    /// Load configuration from file. Migrates legacy config (e.g. drops Agent providers).
     pub async fn load(&self) -> Result<(), StorageError> {
         let path = self.config_path();
         let config = if path.exists() {
             let content = fs::read_to_string(&path).await?;
-            serde_json::from_str(&content)?
+            match serde_json::from_str::<VibeMateConfig>(&content) {
+                Ok(c) => c,
+                Err(_) => {
+                    // Legacy config may contain Agent providers with old type enum; keep only model providers
+                    let raw: serde_json::Value = serde_json::from_str(&content)?;
+                    let app = raw
+                        .get("app")
+                        .and_then(|v| serde_json::from_value(v.clone()).ok())
+                        .unwrap_or_default();
+                    let routing_rules = raw
+                        .get("routingRules")
+                        .or_else(|| raw.get("routing_rules"))
+                        .and_then(|v| serde_json::from_value(v.clone()).ok())
+                        .unwrap_or_default();
+                    let providers: Vec<crate::models::Provider> = raw
+                        .get("providers")
+                        .and_then(|v| v.as_array())
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| serde_json::from_value(v.clone()).ok())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    VibeMateConfig {
+                        app,
+                        providers,
+                        routing_rules,
+                    }
+                }
+            }
         } else {
             VibeMateConfig::default()
         };

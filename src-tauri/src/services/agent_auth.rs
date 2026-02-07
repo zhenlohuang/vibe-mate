@@ -8,17 +8,17 @@ use axum::{
     routing::get,
     Router,
 };
+use serde::Deserialize;
 use tokio::net::TcpListener;
 use tokio::sync::{oneshot, Mutex};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
-use serde::Deserialize;
 
+use crate::agents::auth::{auth_path_for_agent_type, read_email_from_auth, random_state};
 use crate::agents::{
     complete_agent_auth, get_agent_quota, start_agent_auth_flow, AgentAuthContext, AgentAuthError,
 };
-use crate::agents::auth::random_state;
-use crate::models::{AgentAuthStart, AgentProviderType, AgentQuota, Provider, ProviderType};
+use crate::models::{AgentAccountInfo, AgentAuthStart, AgentProviderType, AgentQuota};
 use crate::storage::ConfigStore;
 
 #[derive(Clone)]
@@ -29,8 +29,7 @@ struct AuthServerState {
 
 #[derive(Debug)]
 struct PendingAuth {
-    provider_id: String,
-    provider_type: AgentProviderType,
+    agent_type: AgentProviderType,
     state: String,
     code_verifier: String,
     receiver: Option<oneshot::Receiver<AuthCallback>>,
@@ -62,14 +61,8 @@ impl AgentAuthService {
         }
     }
 
-    pub async fn start_auth(&self, provider_id: &str) -> Result<AgentAuthStart, AgentAuthError> {
-        info!("Starting agent auth flow for provider {}", provider_id);
-        let provider = self.ctx.get_provider(provider_id).await?;
-        let agent_type = match provider.provider_type {
-            ProviderType::Agent(agent_type) => agent_type,
-            _ => return Err(AgentAuthError::NotAgentProvider(provider_id.to_string())),
-        };
-
+    pub async fn start_auth(&self, agent_type: AgentProviderType) -> Result<AgentAuthStart, AgentAuthError> {
+        info!("Starting agent auth flow for {:?}", agent_type);
         let mut pending = self.pending.lock().await;
         if !pending.is_empty() {
             warn!("Auth flow already in progress");
@@ -110,8 +103,7 @@ impl AgentAuthService {
         pending.insert(
             flow_id.clone(),
             PendingAuth {
-                provider_id: provider_id.to_string(),
-                provider_type: agent_type,
+                agent_type,
                 state,
                 code_verifier: flow.code_verifier,
                 receiver: Some(code_rx),
@@ -125,7 +117,7 @@ impl AgentAuthService {
         })
     }
 
-    pub async fn complete_auth(&self, flow_id: &str) -> Result<Provider, AgentAuthError> {
+    pub async fn complete_auth(&self, flow_id: &str) -> Result<AgentAccountInfo, AgentAuthError> {
         info!("Completing agent auth flow {}", flow_id);
         let pending = {
             let mut pending_map = self.pending.lock().await;
@@ -179,25 +171,60 @@ impl AgentAuthService {
         );
         complete_agent_auth(
             &self.ctx,
-            &pending.provider_id,
-            &pending.provider_type,
+            &pending.agent_type,
             &pending.state,
             &callback.code,
             &pending.code_verifier,
         )
         .await?;
 
-        self.ctx.get_provider(&pending.provider_id).await
+        let email = read_email_from_auth(&pending.agent_type).await;
+        Ok(AgentAccountInfo {
+            agent_type: pending.agent_type,
+            is_authenticated: true,
+            email,
+        })
     }
 
-    pub async fn get_quota(&self, provider_id: &str) -> Result<AgentQuota, AgentAuthError> {
-        let provider = self.ctx.get_provider(provider_id).await?;
-        let agent_type = match &provider.provider_type {
-            ProviderType::Agent(agent_type) => agent_type,
-            _ => return Err(AgentAuthError::NotAgentProvider(provider_id.to_string())),
-        };
+    pub async fn get_quota(&self, agent_type: AgentProviderType) -> Result<AgentQuota, AgentAuthError> {
+        get_agent_quota(&self.ctx, &agent_type).await
+    }
 
-        get_agent_quota(&self.ctx, &provider, agent_type).await
+    pub async fn list_accounts(&self) -> Vec<AgentAccountInfo> {
+        let variants = [
+            AgentProviderType::Codex,
+            AgentProviderType::ClaudeCode,
+            AgentProviderType::GeminiCli,
+            AgentProviderType::Antigravity,
+        ];
+        let mut result = Vec::with_capacity(variants.len());
+        for agent_type in variants {
+            let path = match auth_path_for_agent_type(&agent_type) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            let is_authenticated = path.exists();
+            let email = if is_authenticated {
+                read_email_from_auth(&agent_type).await
+            } else {
+                None
+            };
+            result.push(AgentAccountInfo {
+                agent_type,
+                is_authenticated,
+                email,
+            });
+        }
+        result
+    }
+
+    pub async fn remove_auth(&self, agent_type: &AgentProviderType) -> Result<(), AgentAuthError> {
+        let path = auth_path_for_agent_type(agent_type)?;
+        if path.exists() {
+            tokio::fs::remove_file(&path).await?;
+            info!("Removed auth file for {:?}: {}", agent_type, path.display());
+        }
+        Ok(())
     }
 }
 

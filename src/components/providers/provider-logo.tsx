@@ -1,13 +1,15 @@
-import type { ProviderType } from "@/types";
+import type { AgentProviderType, ProviderType } from "@/types";
 import { cn } from "@/lib/utils";
 
+type LogoType = ProviderType | AgentProviderType;
+
 interface ProviderLogoProps {
-  type: ProviderType;
+  type: LogoType;
   className?: string;
 }
 
 export function ProviderLogo({ type, className }: ProviderLogoProps) {
-  const logoMap: Record<ProviderType, { bg: string; text: string; label: string }> = {
+  const logoMap: Record<LogoType, { bg: string; text: string; label: string }> = {
     // Model Providers
     OpenAI: { bg: "bg-emerald-500/10", text: "text-emerald-400", label: "AI" },
     Anthropic: { bg: "bg-orange-500/10", text: "text-orange-400", label: "A" },

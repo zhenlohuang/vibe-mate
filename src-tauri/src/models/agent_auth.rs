@@ -1,4 +1,12 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum AgentProviderType {
+    Codex,
+    ClaudeCode,
+    GeminiCli,
+    Antigravity,
+}
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -26,4 +34,12 @@ pub struct AgentQuota {
     pub week_reset_at: Option<i64>,
     pub entries: Option<Vec<AgentQuotaEntry>>,
     pub note: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAccountInfo {
+    pub agent_type: AgentProviderType,
+    pub is_authenticated: bool,
+    pub email: Option<String>,
 }

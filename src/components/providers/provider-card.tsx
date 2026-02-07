@@ -46,8 +46,7 @@ export function ProviderCard({
   onTestConnection,
 }: ProviderCardProps) {
   const statusConfig = getStatusConfig(provider.status);
-  const canTestConnection =
-    provider.category === "Model" && typeof onTestConnection === "function";
+  const canTestConnection = typeof onTestConnection === "function";
 
   return (
     <motion.div

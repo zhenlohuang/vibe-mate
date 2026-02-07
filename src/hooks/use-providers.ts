@@ -11,8 +11,6 @@ export function useProviders() {
     updateProvider,
     deleteProvider,
     testConnection,
-    authenticateAgentProvider,
-    fetchAgentQuota,
   } = useProviderStore();
 
   useEffect(() => {
@@ -27,8 +25,6 @@ export function useProviders() {
     updateProvider,
     deleteProvider,
     testConnection,
-    authenticateAgentProvider,
-    fetchAgentQuota,
     refetch: fetchProviders,
   };
 }

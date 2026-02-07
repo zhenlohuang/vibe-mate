@@ -3,91 +3,66 @@ import { motion, AnimatePresence } from "motion/react";
 import { Loader2, RefreshCw } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
 import { AgentQuotaCard } from "@/components/quota";
-import { useProviders } from "@/hooks/use-providers";
+import { useAgentAuth } from "@/hooks/use-agent-auth";
 import { AGENT_TYPES } from "@/lib/constants";
-import type { AgentProviderType, Provider, AgentQuota } from "@/types";
+import type { AgentProviderType, AgentQuota } from "@/types";
 import { Button } from "@/components/ui/button";
 import { containerVariants, itemVariants } from "@/lib/animations";
 import { cn } from "@/lib/utils";
 
-interface QuotaGroup {
-  type: AgentProviderType | string;
-  label: string;
-  providers: Provider[];
-}
-
 export function QuotaPage() {
-  const { providers, isLoading, refetch, fetchAgentQuota } = useProviders();
+  const { accounts, isLoading, refetch, getQuota } = useAgentAuth();
   const [hasRefreshedOnLoad, setHasRefreshedOnLoad] = useState(false);
-  const [quotaByProviderId, setQuotaByProviderId] = useState<Record<string, AgentQuota | null>>(
-    {},
-  );
-  const [quotaErrorByProviderId, setQuotaErrorByProviderId] = useState<Record<string, string | null>>(
-    {},
-  );
+  const [quotaByAgentType, setQuotaByAgentType] = useState<Record<string, AgentQuota | null>>({});
+  const [quotaErrorByAgentType, setQuotaErrorByAgentType] = useState<Record<string, string | null>>({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeGroupType, setActiveGroupType] = useState<string | null>(null);
 
-  const agentProviders = useMemo(
-    () => providers.filter((provider) => provider.category === "Agent"),
-    [providers],
-  );
-
-  const groupedProviders = useMemo(() => {
-    const map = new Map<string, Provider[]>();
-    agentProviders.forEach((provider) => {
-      const key = provider.type;
-      const group = map.get(key) ?? [];
-      group.push(provider);
-      map.set(key, group);
-    });
+  const accountByType = useMemo(() => {
+    const map = new Map<AgentProviderType, (typeof accounts)[0]>();
+    accounts.forEach((a) => map.set(a.agentType, a));
     return map;
-  }, [agentProviders]);
+  }, [accounts]);
 
-  const orderedGroups = useMemo<QuotaGroup[]>(() => {
-    const groups: QuotaGroup[] = AGENT_TYPES.map((agent) => ({
+  const orderedGroups = useMemo(() => {
+    return AGENT_TYPES.map((agent) => ({
       type: agent.value as AgentProviderType,
       label: agent.label,
-      providers: groupedProviders.get(agent.value) ?? [],
-    })).filter((group) => group.providers.length > 0);
-
-    const knownTypes: Set<string> = new Set(AGENT_TYPES.map((agent) => agent.value));
-    groupedProviders.forEach((providers, type) => {
-      if (!knownTypes.has(type)) {
-        groups.push({ type, label: type, providers });
-      }
-    });
-
-    return groups;
-  }, [groupedProviders]);
+      account: accountByType.get(agent.value as AgentProviderType) ?? {
+        agentType: agent.value as AgentProviderType,
+        isAuthenticated: false,
+        email: null,
+      },
+    }));
+  }, [accountByType]);
 
   const resolvedGroupType =
-    activeGroupType && orderedGroups.some((group) => group.type === activeGroupType)
+    activeGroupType && orderedGroups.some((g) => g.type === activeGroupType)
       ? activeGroupType
       : orderedGroups[0]?.type ?? null;
   const activeGroup = resolvedGroupType
-    ? orderedGroups.find((group) => group.type === resolvedGroupType) ?? null
+    ? orderedGroups.find((g) => g.type === resolvedGroupType) ?? null
     : null;
 
-  const loadQuotaForProvider = useCallback(
-    async (providerId: string) => {
-      setQuotaErrorByProviderId((prev) => ({ ...prev, [providerId]: null }));
+  const loadQuotaForAgentType = useCallback(
+    async (agentType: AgentProviderType) => {
+      setQuotaErrorByAgentType((prev) => ({ ...prev, [agentType]: null }));
       try {
-        const data = await fetchAgentQuota(providerId);
-        setQuotaByProviderId((prev) => ({ ...prev, [providerId]: data }));
+        const data = await getQuota(agentType);
+        setQuotaByAgentType((prev) => ({ ...prev, [agentType]: data }));
       } catch (error) {
-        setQuotaErrorByProviderId((prev) => ({ ...prev, [providerId]: String(error) }));
+        setQuotaErrorByAgentType((prev) => ({ ...prev, [agentType]: String(error) }));
       }
     },
-    [fetchAgentQuota],
+    [getQuota],
   );
 
   const refreshAllQuotas = useCallback(async () => {
-    const refreshable = agentProviders.filter(
-      (provider) => provider.status === "Connected" && provider.type !== "GeminiCli",
+    const refreshable = orderedGroups.filter(
+      (g) => g.account.isAuthenticated && g.account.agentType !== "GeminiCli",
     );
-    await Promise.all(refreshable.map((provider) => loadQuotaForProvider(provider.id)));
-  }, [agentProviders, loadQuotaForProvider]);
+    await Promise.all(refreshable.map((g) => loadQuotaForAgentType(g.account.agentType)));
+  }, [orderedGroups, loadQuotaForAgentType]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -142,14 +117,6 @@ export function QuotaPage() {
                   aria-pressed={isActive}
                 >
                   <span className="truncate">{group.label}</span>
-                  <span
-                    className={cn(
-                      "flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[10px] font-semibold",
-                      isActive ? "bg-primary text-primary-foreground" : "bg-secondary text-foreground",
-                    )}
-                  >
-                    {group.providers.length}
-                  </span>
                 </button>
               );
             })}
@@ -173,42 +140,35 @@ export function QuotaPage() {
         </Button>
       </div>
 
-      {agentProviders.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center text-sm text-muted-foreground">
-          No agent providers added yet. Add an agent in Providers to see quota.
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {activeGroup ? (
-            <section className="space-y-3">
-              <motion.div
-                key={resolvedGroupType ?? "empty"}
-                variants={containerVariants}
-                initial={false}
-                animate="show"
-                className="grid gap-4 grid-cols-1"
-              >
-                <AnimatePresence mode="popLayout">
-                  {activeGroup.providers.map((provider) => (
-                    <motion.div key={provider.id} variants={itemVariants} layout initial={false}>
-                      <AgentQuotaCard
-                        provider={provider}
-                        quota={quotaByProviderId[provider.id] ?? null}
-                        quotaError={quotaErrorByProviderId[provider.id] ?? null}
-                        onRefresh={loadQuotaForProvider}
-                      />
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-            </section>
-          ) : (
-            <div className="rounded-lg border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center text-sm text-muted-foreground">
-              No providers in this group yet.
-            </div>
-          )}
-        </div>
-      )}
+      <div className="space-y-5">
+        {activeGroup ? (
+          <section className="space-y-3">
+            <motion.div
+              key={resolvedGroupType ?? "empty"}
+              variants={containerVariants}
+              initial={false}
+              animate="show"
+              className="grid gap-4 grid-cols-1"
+            >
+              <AnimatePresence mode="popLayout">
+                <motion.div key={activeGroup.type} variants={itemVariants} layout initial={false}>
+                  <AgentQuotaCard
+                    account={activeGroup.account}
+                    label={activeGroup.label}
+                    quota={quotaByAgentType[activeGroup.type] ?? null}
+                    quotaError={quotaErrorByAgentType[activeGroup.type] ?? null}
+                    onRefresh={loadQuotaForAgentType}
+                  />
+                </motion.div>
+              </AnimatePresence>
+            </motion.div>
+          </section>
+        ) : (
+          <div className="rounded-lg border border-dashed border-border/60 bg-card/30 px-6 py-10 text-center text-sm text-muted-foreground">
+            No agent types configured.
+          </div>
+        )}
+      </div>
     </MainContent>
   );
 }

@@ -9,7 +9,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use tracing::{debug, warn};
 
-use crate::models::{Provider, ProviderStatus};
+use crate::models::AgentProviderType;
 use crate::storage::ConfigStore;
 
 const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -18,10 +18,6 @@ const GOOGLE_USERINFO_URL: &str = "https://www.googleapis.com/oauth2/v1/userinfo
 
 #[derive(Debug, thiserror::Error)]
 pub enum AgentAuthError {
-    #[error("Provider not found: {0}")]
-    ProviderNotFound(String),
-    #[error("Provider is not an agent: {0}")]
-    NotAgentProvider(String),
     #[error("Auth flow already in progress")]
     FlowInProgress,
     #[error("Auth flow not found: {0}")]
@@ -55,59 +51,42 @@ pub struct AgentAuthContext {
     store: Arc<ConfigStore>,
 }
 
+fn auth_filename(agent_type: &AgentProviderType) -> &'static str {
+    match agent_type {
+        AgentProviderType::Codex => "codex.json",
+        AgentProviderType::ClaudeCode => "claude_code.json",
+        AgentProviderType::GeminiCli => "gemini_cli.json",
+        AgentProviderType::Antigravity => "antigravity.json",
+    }
+}
+
+/// Auth path for an agent type: ~/.vibemate/auth/<agent_type>.json
+pub fn auth_path_for_agent_type(agent_type: &AgentProviderType) -> Result<PathBuf, AgentAuthError> {
+    let home = dirs::home_dir()
+        .ok_or_else(|| AgentAuthError::Parse("Could not determine home directory".to_string()))?;
+    Ok(home.join(".vibemate").join("auth").join(auth_filename(agent_type)))
+}
+
 impl AgentAuthContext {
     pub fn new(store: Arc<ConfigStore>) -> Self {
         Self { store }
     }
 
-    pub async fn get_provider(&self, id: &str) -> Result<Provider, AgentAuthError> {
-        let config = self.store.get_config().await;
-        config
-            .providers
-            .into_iter()
-            .find(|p| p.id == id)
-            .ok_or_else(|| AgentAuthError::ProviderNotFound(id.to_string()))
-    }
-
-    pub async fn update_provider_status(
-        &self,
-        provider_id: &str,
-        status: ProviderStatus,
-    ) -> Result<(), AgentAuthError> {
-        let id = provider_id.to_string();
-        self.store
-            .update(|config| {
-                if let Some(provider) = config.providers.iter_mut().find(|p| p.id == id) {
-                    provider.status = status.clone();
-                    provider.updated_at = Utc::now();
-                }
-            })
-            .await?;
-        Ok(())
-    }
-
     pub async fn load_and_normalize_auth<T>(
         &self,
-        provider: &Provider,
+        agent_type: &AgentProviderType,
     ) -> Result<(PathBuf, T), AgentAuthError>
     where
         T: DeserializeOwned,
     {
-        let auth_path = auth_path_for_provider_id(&provider.id)?;
+        let auth_path = auth_path_for_agent_type(agent_type)?;
         if !auth_path.exists() {
-            let _ = self
-                .update_provider_status(&provider.id, ProviderStatus::Disconnected)
-                .await;
             return Err(AgentAuthError::Parse(
                 "Auth file not found. Please login again.".to_string(),
             ));
         }
         debug!("Loading auth token from {}", auth_path.display());
         let auth: T = load_auth_file(&auth_path).await?;
-        let _ = self
-            .update_provider_status(&provider.id, ProviderStatus::Connected)
-            .await;
-
         Ok((auth_path, auth))
     }
 
@@ -164,6 +143,17 @@ impl AgentAuthContext {
         let data: GoogleUserInfo = response.json().await?;
         Ok(data.email)
     }
+}
+
+/// Read email from an agent's auth file if present (e.g. for list_accounts).
+pub async fn read_email_from_auth(agent_type: &AgentProviderType) -> Option<String> {
+    let path = auth_path_for_agent_type(agent_type).ok()?;
+    if !path.exists() {
+        return None;
+    }
+    let content = tokio::fs::read_to_string(&path).await.ok()?;
+    let value: serde_json::Value = serde_json::from_str(&content).ok()?;
+    value.get("email").and_then(|v| v.as_str()).map(String::from)
 }
 
 #[derive(Debug, Deserialize)]
@@ -325,24 +315,6 @@ pub fn parse_rfc3339_to_epoch(value: &str) -> Option<i64> {
     DateTime::parse_from_rfc3339(value)
         .map(|dt| dt.timestamp())
         .ok()
-}
-
-// Save agent auth tokens by provider UUID under ~/.vibemate/auth/<uuid>.json.
-pub fn auth_path_for_provider_id(provider_id: &str) -> Result<PathBuf, AgentAuthError> {
-    let home = dirs::home_dir()
-        .ok_or_else(|| AgentAuthError::Parse("Could not determine home directory".to_string()))?;
-    let sanitized_id: String = provider_id
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let filename = format!("{}.json", sanitized_id);
-    Ok(home.join(".vibemate").join("auth").join(filename))
 }
 
 pub async fn save_auth_file<T: Serialize>(

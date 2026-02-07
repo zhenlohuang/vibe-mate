@@ -80,9 +80,12 @@ pub fn run() {
             commands::delete_provider,
             commands::set_default_provider,
             commands::test_connection,
+            // Agent auth commands
             commands::start_agent_auth,
             commands::complete_agent_auth,
             commands::get_agent_quota,
+            commands::list_agent_accounts,
+            commands::remove_agent_auth,
             // Router commands
             commands::list_rules,
             commands::create_rule,

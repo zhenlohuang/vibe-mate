@@ -17,9 +17,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::{oneshot, RwLock};
 use tower_http::cors::{Any, CorsLayer};
 
-use crate::models::{
-    ApiGroup, Provider, ProviderCategory, RoutingRule, RuleType, VibeMateConfig,
-};
+use crate::models::{ApiGroup, Provider, RoutingRule, RuleType, VibeMateConfig};
 use crate::storage::ConfigStore;
 
 /// Create HTTP client with proxy support based on config
@@ -697,11 +695,7 @@ fn resolve_provider(
     }
 
     // Fall back to default provider
-    let default_provider = config
-        .providers
-        .iter()
-        .find(|p| p.provider_category == ProviderCategory::Model)
-        .or_else(|| config.providers.first())?;
+    let default_provider = config.providers.first()?;
 
     Some(ResolvedProvider {
         provider: default_provider.clone(),
@@ -788,7 +782,7 @@ fn rewrite_model_in_body(body: &Bytes, new_model: &str) -> Vec<u8> {
 
 /// Add authentication header based on provider type
 fn add_auth_header(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest::RequestBuilder {
-    use crate::models::{ModelProviderType, ProviderType};
+    use crate::models::ProviderType;
 
     let api_key = match provider.api_key.as_ref() {
         Some(key) => key,
@@ -796,22 +790,15 @@ fn add_auth_header(req: reqwest::RequestBuilder, provider: &Provider) -> reqwest
     };
 
     match &provider.provider_type {
-        ProviderType::Model(ModelProviderType::Anthropic) => {
-            // Anthropic uses x-api-key header
+        ProviderType::Anthropic => {
             req.header("x-api-key", api_key)
                 .header("anthropic-version", "2023-06-01")
         }
-        ProviderType::Model(ModelProviderType::Google) => {
-            // Google uses API key in URL or header
+        ProviderType::Google => {
             req.header("x-goog-api-key", api_key)
         }
-        ProviderType::Model(_) => {
-            // OpenAI, Azure, Custom use Bearer token
+        _ => {
             req.header(header::AUTHORIZATION, format!("Bearer {}", api_key))
-        }
-        ProviderType::Agent(_) => {
-            // Agent providers don't use API keys in HTTP headers
-            req
         }
     }
 }

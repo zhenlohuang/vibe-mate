@@ -1,9 +1,9 @@
 use crate::agents::{
-    auth::{auth_path_for_provider_id, generate_pkce_codes, save_auth_file, AuthFlowStart},
+    auth::{auth_path_for_agent_type, generate_pkce_codes, save_auth_file, AuthFlowStart},
     auth::{AgentAuthContext, AgentAuthError},
     binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
 };
-use crate::models::{AgentQuota, AgentType, Provider, ProviderStatus};
+use crate::models::{AgentProviderType, AgentQuota, AgentType};
 
 use base64::Engine as _;
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
@@ -117,7 +117,7 @@ pub(crate) fn start_auth_flow(state: &str) -> Result<AuthFlowStart, AgentAuthErr
 
 pub(crate) async fn complete_auth(
     ctx: &AgentAuthContext,
-    provider_id: &str,
+    agent_type: &AgentProviderType,
     _state: &str,
     code: &str,
     code_verifier: &str,
@@ -148,21 +148,19 @@ pub(crate) async fn complete_auth(
         expire: expire_at.to_rfc3339(),
     };
 
-    let auth_path = auth_path_for_provider_id(provider_id)?;
+    let auth_path = auth_path_for_agent_type(agent_type)?;
     info!("Saving auth token to {}", auth_path.display());
     save_auth_file(&auth_path, &storage).await?;
-    ctx.update_provider_status(provider_id, ProviderStatus::Connected)
-        .await?;
 
     Ok(())
 }
 
 pub(crate) async fn get_quota(
     ctx: &AgentAuthContext,
-    provider: &Provider,
+    agent_type: &AgentProviderType,
 ) -> Result<AgentQuota, AgentAuthError> {
     let (auth_path, mut auth): (std::path::PathBuf, CodexTokenStorage) = ctx
-        .load_and_normalize_auth(provider)
+        .load_and_normalize_auth(agent_type)
         .await?;
 
     if should_refresh_codex(&auth) {
