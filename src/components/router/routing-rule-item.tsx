@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, ArrowRight, Trash2, Copy, Check, X } from "lucide-react";
@@ -48,6 +48,15 @@ function getRulePlaceholder(ruleType: RuleType) {
   return ruleType === "path" ? "/api/*" : "gpt-4*";
 }
 
+function draftEqualsRule(draft: RoutingRule, rule: RoutingRule): boolean {
+  return (
+    draft.matchPattern === rule.matchPattern &&
+    draft.providerId === rule.providerId &&
+    (draft.modelRewrite ?? "") === (rule.modelRewrite ?? "") &&
+    draft.enabled === rule.enabled
+  );
+}
+
 export function RoutingRuleItem({
   rule,
   providers,
@@ -55,7 +64,13 @@ export function RoutingRuleItem({
   onDelete,
   onDuplicate,
 }: RoutingRuleItemProps) {
+  const [draft, setDraft] = useState<RoutingRule>(rule);
   const isLocked = isLockedRule(rule);
+
+  useEffect(() => {
+    setDraft(rule);
+  }, [rule]);
+
   const {
     attributes,
     listeners,
@@ -72,6 +87,7 @@ export function RoutingRuleItem({
 
   const label = getRuleLabel(rule.ruleType);
   const placeholder = getRulePlaceholder(rule.ruleType);
+  const hasChanges = !isLocked && !draftEqualsRule(draft, rule);
 
   return (
     <div
@@ -80,7 +96,7 @@ export function RoutingRuleItem({
       className={cn(
         "flex items-center gap-2 rounded-lg border border-border bg-card p-3 transition-all",
         isDragging && "routing-rule-dragging z-50 shadow-2xl",
-        !rule.enabled && "opacity-50"
+        !draft.enabled && "opacity-50"
       )}
     >
       {/* Drag Handle */}
@@ -97,12 +113,12 @@ export function RoutingRuleItem({
       </div>
 
       {/* Match Pattern */}
-      <div className="flex-1 max-w-[160px]">
+      <div className="flex-1 max-w-[200px]">
         <Input
           className="font-mono text-[11px] bg-secondary/70 border-0"
           placeholder={placeholder}
-          value={rule.matchPattern}
-          onChange={(e) => onUpdate({ ...rule, matchPattern: e.target.value })}
+          value={draft.matchPattern}
+          onChange={(e) => setDraft({ ...draft, matchPattern: e.target.value })}
           disabled={isLocked}
         />
       </div>
@@ -113,8 +129,8 @@ export function RoutingRuleItem({
       {/* Target Provider */}
       <div className="w-[130px]">
         <Select
-          value={rule.providerId}
-          onValueChange={(providerId) => onUpdate({ ...rule, providerId })}
+          value={draft.providerId}
+          onValueChange={(providerId) => setDraft({ ...draft, providerId })}
         >
           <SelectTrigger className="bg-secondary/70 border-0">
             <SelectValue placeholder="Select provider" />
@@ -130,13 +146,13 @@ export function RoutingRuleItem({
       </div>
 
       {/* Model Rewrite */}
-      <div className="flex-1">
+      <div className="flex-1 max-w-[200px]">
         <Input
           className="font-mono text-[11px] bg-secondary/70 border-0"
           placeholder="(Optional)"
-          value={rule.modelRewrite || ""}
+          value={draft.modelRewrite || ""}
           onChange={(e) =>
-            onUpdate({ ...rule, modelRewrite: e.target.value || null })
+            setDraft({ ...draft, modelRewrite: e.target.value || null })
           }
         />
       </div>
@@ -144,6 +160,38 @@ export function RoutingRuleItem({
       {/* Action Buttons */}
       <TooltipProvider delayDuration={300}>
         <div className="flex items-center gap-1">
+          {!isLocked && hasChanges && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => onUpdate(draft)}
+                    className="p-1.5 rounded-md text-primary hover:text-primary hover:bg-secondary transition-colors"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Save</p>
+                </TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setDraft(rule)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">Cancel</p>
+                </TooltipContent>
+              </Tooltip>
+            </>
+          )}
+
           {!isLocked && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -178,8 +226,8 @@ export function RoutingRuleItem({
 
           <div className="flex items-center gap-1.5 pl-1">
             <Switch
-              checked={rule.enabled}
-              onCheckedChange={(enabled) => onUpdate({ ...rule, enabled })}
+              checked={draft.enabled}
+              onCheckedChange={(enabled) => setDraft({ ...draft, enabled })}
               disabled={isLocked}
             />
           </div>
@@ -245,7 +293,7 @@ export function NewRuleItem({
         {label}
       </div>
 
-      <div className="flex-1 max-w-[160px]">
+      <div className="flex-1 max-w-[200px]">
         <Input
           className="font-mono text-[11px] bg-secondary/70 border-0"
           placeholder={placeholder}
@@ -273,7 +321,7 @@ export function NewRuleItem({
         </Select>
       </div>
 
-      <div className="flex-1">
+      <div className="flex-1 max-w-[200px]">
         <Input
           className="font-mono text-[11px] bg-secondary/70 border-0"
           placeholder="(Optional)"

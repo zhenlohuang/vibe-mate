@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { Check, X } from "lucide-react";
 import type { RoutingRule, Provider } from "@/types";
 import {
   Select,
@@ -6,6 +8,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface DefaultProviderProps {
   rule: RoutingRule;
@@ -18,8 +26,20 @@ export function DefaultProvider({
   providers,
   onUpdate,
 }: DefaultProviderProps) {
-  const handleProviderChange = (providerId: string) => {
+  const [providerId, setProviderId] = useState(rule.providerId);
+
+  useEffect(() => {
+    setProviderId(rule.providerId);
+  }, [rule.providerId]);
+
+  const hasChanges = providerId !== rule.providerId;
+
+  const handleSave = () => {
     onUpdate({ ...rule, providerId });
+  };
+
+  const handleCancel = () => {
+    setProviderId(rule.providerId);
   };
 
   return (
@@ -30,7 +50,7 @@ export function DefaultProvider({
         </span>
       </div>
       <div className="w-full md:w-[220px]">
-        <Select value={rule.providerId} onValueChange={handleProviderChange}>
+        <Select value={providerId} onValueChange={setProviderId}>
           <SelectTrigger className="bg-secondary/70 border-0">
             <SelectValue placeholder="Select provider" />
           </SelectTrigger>
@@ -43,6 +63,38 @@ export function DefaultProvider({
           </SelectContent>
         </Select>
       </div>
+      {hasChanges && (
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleSave}
+                  className="p-1.5 rounded-md text-primary hover:text-primary hover:bg-secondary transition-colors"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">Save</p>
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={handleCancel}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <p className="text-xs">Cancel</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+      )}
     </div>
   );
 }
