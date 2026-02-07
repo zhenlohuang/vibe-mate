@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use futures_util::future::join_all;
 use axum::{
     extract::{Query, State},
     http::StatusCode as AxumStatusCode,
@@ -197,11 +198,18 @@ impl AgentAuthService {
             AgentProviderType::GeminiCli,
             AgentProviderType::Antigravity,
         ];
-        let mut result = Vec::with_capacity(variants.len());
-        for agent_type in variants {
+        let results = join_all(variants.iter().map(|agent_type| {
+            let agent_type = agent_type.clone();
+            async move {
             let path = match auth_path_for_agent_type(&agent_type) {
                 Ok(p) => p,
-                Err(_) => continue,
+                Err(_) => {
+                    return AgentAccountInfo {
+                        agent_type,
+                        is_authenticated: false,
+                        email: None,
+                    };
+                }
             };
             let is_authenticated = path.exists();
             let email = if is_authenticated {
@@ -209,13 +217,15 @@ impl AgentAuthService {
             } else {
                 None
             };
-            result.push(AgentAccountInfo {
+            AgentAccountInfo {
                 agent_type,
                 is_authenticated,
                 email,
-            });
-        }
-        result
+            }
+            }
+        }))
+        .await;
+        results
     }
 
     pub async fn remove_auth(&self, agent_type: &AgentProviderType) -> Result<(), AgentAuthError> {

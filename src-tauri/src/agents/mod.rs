@@ -5,6 +5,9 @@ mod antigravity;
 pub(crate) mod auth;
 
 use std::process::Command;
+use std::time::Duration;
+
+use tokio::process::Command as TokioCommand;
 
 use crate::models::{AgentProviderType, AgentQuota, AgentType};
 
@@ -25,15 +28,37 @@ pub struct AgentMetadata {
 
 pub trait CodingAgentDefinition {
     fn metadata(&self) -> &'static AgentMetadata;
+    #[allow(dead_code)] // kept for sync trait impls; discover uses check_binary_installed_and_version
     fn is_installed(&self) -> bool;
-    fn get_version(&self) -> Option<String>;
 }
 
-pub(crate) fn resolve_binary_version(binary: &str) -> Option<String> {
-    let output = Command::new(binary).arg("--version").output().ok()?;
+#[allow(dead_code)] // kept for sync trait impls; discover uses check_binary_installed_and_version
+pub(crate) fn binary_is_installed(binary: &str) -> bool {
+    Command::new(binary)
+        .arg("--version")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
+/// Run `binary --version` once with a timeout; returns (is_installed, version_string).
+/// Used by discover_agents to avoid running the same command twice per agent.
+const BINARY_CHECK_TIMEOUT_SECS: u64 = 2;
+
+pub async fn check_binary_installed_and_version(binary: &str) -> (bool, Option<String>) {
+    let output = tokio::time::timeout(
+        Duration::from_secs(BINARY_CHECK_TIMEOUT_SECS),
+        TokioCommand::new(binary).arg("--version").output(),
+    )
+    .await;
+
+    let output = match output {
+        Ok(Ok(out)) => out,
+        _ => return (false, None),
+    };
 
     if !output.status.success() {
-        return None;
+        return (false, None);
     }
 
     let version = String::from_utf8_lossy(&output.stdout)
@@ -45,18 +70,10 @@ pub(crate) fn resolve_binary_version(binary: &str) -> Option<String> {
         .to_string();
 
     if version.is_empty() {
-        None
+        (true, None)
     } else {
-        Some(version)
+        (true, Some(version))
     }
-}
-
-pub(crate) fn binary_is_installed(binary: &str) -> bool {
-    Command::new(binary)
-        .arg("--version")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
 }
 
 static ANTIGRAVITY_AGENT: AntigravityAgent = AntigravityAgent;

@@ -3,7 +3,7 @@ use crate::agents::{
         auth_path_for_agent_type, generate_pkce_codes, parse_rfc3339_to_epoch, save_auth_file,
     },
     auth::{AgentAuthContext, AgentAuthError, AuthFlowStart},
-    binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
+    binary_is_installed, AgentMetadata, CodingAgentDefinition,
 };
 use crate::models::{AgentProviderType, AgentQuota, AgentQuotaEntry, AgentType};
 
@@ -41,10 +41,6 @@ impl CodingAgentDefinition for ClaudeCodeAgent {
 
     fn is_installed(&self) -> bool {
         binary_is_installed(Self::METADATA.binary)
-    }
-
-    fn get_version(&self) -> Option<String> {
-        resolve_binary_version(Self::METADATA.binary)
     }
 }
 

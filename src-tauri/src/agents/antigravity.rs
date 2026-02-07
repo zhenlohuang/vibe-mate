@@ -11,7 +11,7 @@ use crate::agents::{
         parse_rfc3339_to_epoch, refresh_google_token, save_auth_file, should_refresh_google,
         AgentAuthContext, AgentAuthError, AuthFlowStart,
     },
-    binary_is_installed, resolve_binary_version, AgentMetadata, CodingAgentDefinition,
+    binary_is_installed, AgentMetadata, CodingAgentDefinition,
 };
 use crate::models::{AgentProviderType, AgentQuota, AgentQuotaEntry, AgentType};
 
@@ -34,10 +34,6 @@ impl CodingAgentDefinition for AntigravityAgent {
 
     fn is_installed(&self) -> bool {
         binary_is_installed(Self::METADATA.binary)
-    }
-
-    fn get_version(&self) -> Option<String> {
-        resolve_binary_version(Self::METADATA.binary)
     }
 }
 

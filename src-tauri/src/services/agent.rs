@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use futures_util::future::join_all;
-use crate::agents::{agent_definition, agent_metadata, all_agent_definitions};
+use crate::agents::{agent_metadata, all_agent_definitions, check_binary_installed_and_version};
 use crate::models::{AgentStatus, AgentType, CodingAgent};
 
 #[derive(Debug, thiserror::Error)]
@@ -36,36 +36,20 @@ impl AgentService {
         Ok(agents)
     }
 
-    /// Check a specific agent's status
+    /// Check a specific agent's status (single binary --version call with timeout).
     async fn check_agent(&self, agent_type: &AgentType) -> CodingAgent {
-        let definition = agent_definition(agent_type);
-        let is_installed = definition.is_installed();
-        let mut agent = CodingAgent::new(agent_type.clone());
+        let metadata = agent_metadata(agent_type);
+        let (is_installed, version) = check_binary_installed_and_version(metadata.binary).await;
 
+        let mut agent = CodingAgent::new(agent_type.clone());
         agent.status = if is_installed {
             AgentStatus::Installed
         } else {
             AgentStatus::NotInstalled
         };
-        agent.version = if is_installed {
-            definition.get_version()
-        } else {
-            None
-        };
-
+        agent.version = version;
         agent
     }
-
-    /// Get version information for an agent (synchronous)
-    fn get_version_sync(&self, agent_type: &AgentType) -> Option<String> {
-        agent_definition(agent_type).get_version()
-    }
-
-    /// Get version information for an agent
-    pub async fn get_version(&self, agent_type: &AgentType) -> Option<String> {
-        self.get_version_sync(agent_type)
-    }
-
 
     /// Check status of a specific agent
     pub async fn check_status(&self, agent_type: &AgentType) -> Result<CodingAgent, AgentError> {

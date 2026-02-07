@@ -96,7 +96,6 @@ pub fn run() {
             commands::discover_agents,
             commands::check_status,
             commands::open_login,
-            commands::get_agent_version,
             commands::read_agent_config,
             commands::save_agent_config,
             // Config commands

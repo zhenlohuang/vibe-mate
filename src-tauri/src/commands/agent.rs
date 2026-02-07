@@ -37,14 +37,6 @@ pub async fn open_login(
 }
 
 #[tauri::command]
-pub async fn get_agent_version(
-    service: State<'_, Arc<AgentService>>,
-    agent_type: AgentType,
-) -> Result<Option<String>, String> {
-    Ok(service.get_version(&agent_type).await)
-}
-
-#[tauri::command]
 pub async fn read_agent_config(
     service: State<'_, Arc<AgentService>>,
     agent_type: AgentType,
