@@ -126,7 +126,7 @@ export function ProvidersPage() {
     return (
       <MainContent
         title="Providers"
-        description="Add model providers. Use Coding Agents to authenticate agents and view usage."
+        description="Add and manage LLM API providers (OpenAI, Anthropic, etc.)."
       >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -138,7 +138,7 @@ export function ProvidersPage() {
   return (
     <MainContent
       title="Providers"
-      description="Add model providers. Use Coding Agents to authenticate agents and view usage."
+      description="Add and manage LLM API providers (OpenAI, Anthropic, etc.)."
     >
       <motion.div
         variants={containerVariants}

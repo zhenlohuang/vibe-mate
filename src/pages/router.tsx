@@ -278,7 +278,7 @@ export function RouterPage() {
     return (
       <MainContent
         title="Routing Rules"
-        description="Control request routing across OpenAI, Anthropic, and generic APIs."
+        description="Route API requests by model or path to your providers."
       >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -290,7 +290,7 @@ export function RouterPage() {
   return (
     <MainContent
       title="Routing Rules"
-      description="Control request routing across OpenAI, Anthropic, and generic APIs."
+      description="Route API requests by model or path to your providers."
     >
       <div className="space-y-4 pb-12">
         <div className="rounded-xl border border-border bg-card/50 p-4">

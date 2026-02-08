@@ -81,7 +81,7 @@ export function SettingsPage() {
   return (
     <MainContent
       title="Preferences"
-      description="Manage upstream proxy connections for Vibe Mate."
+      description="Upstream proxy and network settings."
     >
       <div className="max-w-xl space-y-6">
         {/* Network Settings */}

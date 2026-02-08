@@ -185,7 +185,7 @@ export function DashboardPage() {
   }, [agents, pendingFeatured, refetch, toast]);
 
   return (
-    <MainContent title="Dashboard" description="Your mate for Vibe Coding">
+    <MainContent title="Dashboard" description="Proxy status, API endpoints, and featured coding agents.">
       <div className="space-y-8">
         {/* API 调用地址 */}
         <section>
