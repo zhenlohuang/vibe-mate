@@ -291,13 +291,12 @@ export function RouterPage() {
     <MainContent
       title="Routing Rules"
       description="Route API requests by model or path to your providers."
-      titleClassName="text-base"
     >
       <div className="space-y-4 pb-12">
         <div className="rounded-xl border border-border bg-card/50 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-semibold tracking-wide text-foreground">OpenAI Compatible API</h3>
+              <h3 className="text-sm font-semibold tracking-wide text-foreground">OpenAI Compatible API</h3>
             </div>
             <Button
               onClick={() => handleStartAddRule("openai", "model")}
@@ -341,7 +340,7 @@ export function RouterPage() {
         <div className="rounded-xl border border-border bg-card/50 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-semibold tracking-wide text-foreground">Anthropic Compatible API</h3>
+              <h3 className="text-sm font-semibold tracking-wide text-foreground">Anthropic Compatible API</h3>
             </div>
             <Button
               onClick={() => handleStartAddRule("anthropic", "model")}
@@ -385,7 +384,7 @@ export function RouterPage() {
         <div className="rounded-xl border border-border bg-card/50 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xs font-semibold tracking-wide text-foreground">Generic API</h3>
+              <h3 className="text-sm font-semibold tracking-wide text-foreground">Generic API</h3>
             </div>
             <Button
               onClick={() => handleStartAddRule("generic", "path")}
