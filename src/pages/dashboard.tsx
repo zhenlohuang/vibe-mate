@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Copy, Check, Settings2, Loader2 } from "lucide-react";
 import { MainContent } from "@/components/layout/main-content";
-import { AgentQuotaCard, NotInstalledAgentCard } from "@/components/quota";
+import { AgentCard } from "@/components/agents";
 import { invoke } from "@tauri-apps/api/core";
 import { useAgentAuth } from "@/hooks/use-agent-auth";
 import { useAgents } from "@/hooks/use-agents";
@@ -146,32 +146,6 @@ export function DashboardPage() {
     return () => clearInterval(interval);
   }, [isLoading, runQuotaRefresh]);
 
-  const handleInstall = useCallback(
-    async (agentType: AgentType) => {
-      const installUrls: Record<AgentType, string> = {
-        ClaudeCode: "https://claude.ai/code",
-        Codex: "https://github.com/codexyz/codex",
-        GeminiCLI: "https://ai.google.dev/gemini-api/docs/cli",
-        Antigravity: "https://antigravity.codes/download",
-      };
-      const url = installUrls[agentType];
-      if (url) {
-        window.open(url, "_blank");
-        toast({
-          title: "Opening Installation Page",
-          description: `Opening the installation page for ${getAgentName(agentType)} in your browser.`,
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: "No installation URL for this agent.",
-          variant: "destructive",
-        });
-      }
-    },
-    [toast]
-  );
-
   const openFeaturedDialog = useCallback(() => {
     const current = agents
       .filter((a) => a.featured !== false)
@@ -283,7 +257,6 @@ export function DashboardPage() {
                 {agentsToShow.map((agent) => {
                   const agentType = agent.agentType;
                   const providerType = agentTypeToProviderType(agentType);
-                  const isInstalled = agent.status !== "NotInstalled";
                   const label = getAgentName(agentType);
                   const account =
                     accountByType.get(providerType) ?? ({
@@ -291,24 +264,6 @@ export function DashboardPage() {
                       isAuthenticated: false,
                       email: null,
                     });
-
-                  if (!isInstalled) {
-                    return (
-                      <motion.div
-                        key={agentType}
-                        variants={itemVariants}
-                        layout
-                        initial={false}
-                      >
-                        <NotInstalledAgentCard
-                          agentType={agentType}
-                          label={label}
-                          onInstall={() => handleInstall(agentType)}
-                        />
-                      </motion.div>
-                    );
-                  }
-
                   return (
                     <motion.div
                       key={agentType}
@@ -316,7 +271,7 @@ export function DashboardPage() {
                       layout
                       initial={false}
                     >
-                      <AgentQuotaCard
+                      <AgentCard
                         account={account}
                         label={label}
                         quota={quotaByAgentType[providerType] ?? null}

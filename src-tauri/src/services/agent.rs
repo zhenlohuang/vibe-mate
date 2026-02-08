@@ -18,7 +18,8 @@ impl AgentService {
         Self
     }
 
-    /// Discover all supported coding agents in the system (parallel detection).
+    /// Discover installed coding agents in the system (parallel detection).
+    /// Only returns agents that are currently installed (binary present).
     pub async fn discover_agents(&self) -> Result<Vec<CodingAgent>, AgentError> {
         let agent_types: Vec<AgentType> = all_agent_definitions()
             .into_iter()
@@ -32,7 +33,11 @@ impl AgentService {
         )
         .await;
 
-        Ok(agents)
+        let installed: Vec<CodingAgent> = agents
+            .into_iter()
+            .filter(|a| a.status == AgentStatus::Installed)
+            .collect();
+        Ok(installed)
     }
 
     /// Check a specific agent's status (single binary --version call with timeout).

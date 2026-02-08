@@ -10,7 +10,7 @@ import { ProviderLogo } from "@/components/providers/provider-logo";
 import { useAgentAuthStore } from "@/stores/agent-auth-store";
 import { useToast } from "@/hooks/use-toast";
 
-interface AgentQuotaCardProps {
+interface AgentCardProps {
   account: AgentAccountInfo;
   label: string;
   quota?: AgentQuota | null;
@@ -30,7 +30,7 @@ function getStatusConfig(authenticated: boolean) {
     : { label: "INACTIVE", className: "bg-muted text-muted-foreground", dotClassName: "bg-muted-foreground" };
 }
 
-export function AgentQuotaCard({
+export function AgentCard({
   account,
   label,
   quota,
@@ -39,7 +39,7 @@ export function AgentQuotaCard({
   isRefreshing = false,
   configHref,
   showConfigIcon = false,
-}: AgentQuotaCardProps) {
+}: AgentCardProps) {
   const isLoggedIn = account.isAuthenticated;
   const statusConfig = getStatusConfig(isLoggedIn);
   const agentType = account.agentType;
