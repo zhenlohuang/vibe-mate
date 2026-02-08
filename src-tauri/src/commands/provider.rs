@@ -51,17 +51,6 @@ pub async fn delete_provider(
 }
 
 #[tauri::command]
-pub async fn set_default_provider(
-    service: State<'_, Arc<ProviderService>>,
-    id: String,
-) -> Result<(), String> {
-    service
-        .set_default_provider(&id)
-        .await
-        .map_err(|e| e.to_string())
-}
-
-#[tauri::command]
 pub async fn test_connection(
     service: State<'_, Arc<ProviderService>>,
     id: String,

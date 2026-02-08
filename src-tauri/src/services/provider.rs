@@ -100,23 +100,6 @@ impl ProviderService {
         Ok(())
     }
 
-    pub async fn set_default_provider(&self, id: &str) -> Result<(), ProviderError> {
-        self.get_provider(id).await?;
-
-        let id_owned = id.to_string();
-        self.store
-            .update(|config| {
-                if let Some(index) = config.providers.iter().position(|p| p.id == id_owned) {
-                    let mut provider = config.providers.remove(index);
-                    provider.updated_at = Utc::now();
-                    config.providers.insert(0, provider);
-                }
-            })
-            .await?;
-
-        Ok(())
-    }
-
     pub async fn test_connection(&self, id: &str) -> Result<ConnectionStatus, ProviderError> {
         let provider = self.get_provider(id).await?;
         let start = std::time::Instant::now();

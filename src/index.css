@@ -198,35 +198,6 @@ body {
   font-family: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
 }
 
-.neon-glow {
-  box-shadow: 0 0 10px #a855f7, 
-              0 0 20px #a855f7, 
-              0 0 30px #a855f7;
-}
-
-.neon-text {
-  text-shadow: 0 0 10px #a855f7;
-}
-
-/* ===== Card hover effects ===== */
-.card-interactive {
-  transition: all 0.2s ease;
-}
-
-.card-interactive:hover {
-  background: linear-gradient(180deg, rgba(39, 39, 42, 0.8) 0%, #18181b 100%);
-}
-
-/* ===== Progress bar custom styles ===== */
-[data-slot="progress-indicator"] {
-  background: linear-gradient(90deg, #3b82f6 0%, #22d3ee 100%);
-}
-
-/* ===== Terminal styles ===== */
-.terminal-line {
-  line-height: 1.8;
-}
-
 /* ===== Selection highlight ===== */
 ::selection {
   background-color: rgba(168, 85, 247, 0.3);

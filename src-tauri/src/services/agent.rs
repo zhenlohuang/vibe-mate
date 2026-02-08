@@ -1,6 +1,5 @@
 use std::fs;
 use std::path::PathBuf;
-use std::process::Command;
 
 use futures_util::future::join_all;
 use crate::agents::{agent_metadata, all_agent_definitions, check_binary_installed_and_version};
@@ -54,59 +53,6 @@ impl AgentService {
     /// Check status of a specific agent
     pub async fn check_status(&self, agent_type: &AgentType) -> Result<CodingAgent, AgentError> {
         Ok(self.check_agent(agent_type).await)
-    }
-
-    /// Open the login flow for an agent
-    pub async fn open_login(&self, agent_type: &AgentType) -> Result<(), AgentError> {
-        let metadata = agent_metadata(agent_type);
-        let command = metadata.binary;
-
-        // Try to open the login command in a new terminal
-        // This is platform-specific
-        #[cfg(target_os = "macos")]
-        {
-            let script = format!(
-                r#"tell application "Terminal"
-                    do script "{} auth login"
-                    activate
-                end tell"#,
-                command
-            );
-            Command::new("osascript")
-                .args(["-e", &script])
-                .spawn()
-                .map_err(|e| AgentError::CommandError(e.to_string()))?;
-        }
-
-        #[cfg(target_os = "linux")]
-        {
-            // Try common terminal emulators
-            let terminals = ["gnome-terminal", "konsole", "xterm"];
-            for term in &terminals {
-                if Command::new("which")
-                    .arg(term)
-                    .output()
-                    .map(|o| o.status.success())
-                    .unwrap_or(false)
-                {
-                    Command::new(term)
-                        .args(["--", command, "auth", "login"])
-                        .spawn()
-                        .map_err(|e| AgentError::CommandError(e.to_string()))?;
-                    break;
-                }
-            }
-        }
-
-        #[cfg(target_os = "windows")]
-        {
-            Command::new("cmd")
-                .args(["/c", "start", "cmd", "/k", command, "auth", "login"])
-                .spawn()
-                .map_err(|e| AgentError::CommandError(e.to_string()))?;
-        }
-
-        Ok(())
     }
 
     /// Get the config file path for an agent

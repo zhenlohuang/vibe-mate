@@ -30,7 +30,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             // Use ~/.vibemate/ as config directory
             let config_dir = get_config_dir();
@@ -100,7 +99,6 @@ pub fn run() {
             commands::create_provider,
             commands::update_provider,
             commands::delete_provider,
-            commands::set_default_provider,
             commands::test_connection,
             // Agent auth commands
             commands::start_agent_auth,
@@ -115,9 +113,7 @@ pub fn run() {
             commands::delete_rule,
             commands::reorder_rules,
             // Agent commands
-            commands::discover_agents,
             commands::check_status,
-            commands::open_login,
             commands::read_agent_config,
             commands::save_agent_config,
             // Config commands
