@@ -7,6 +7,8 @@ use super::{CodingAgent, Provider, RoutingRule};
 #[serde(rename_all = "camelCase")]
 #[serde(default)]
 pub struct AppConfig {
+    /// Proxy server listen port (config key: app.port)
+    pub port: u16,
     pub enable_proxy: bool,
     pub proxy_url: Option<String>,
     pub no_proxy: Vec<String>,
@@ -16,6 +18,7 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
+            port: 12345,
             enable_proxy: false,
             proxy_url: None,
             no_proxy: Vec::new(),
@@ -27,24 +30,10 @@ impl Default for AppConfig {
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateAppConfigInput {
+    pub port: Option<u16>,
     pub enable_proxy: Option<bool>,
     pub proxy_url: Option<String>,
     pub no_proxy: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[serde(default)]
-pub struct DashboardConfig {
-    pub featured_agents: Vec<String>,
-}
-
-impl Default for DashboardConfig {
-    fn default() -> Self {
-        Self {
-            featured_agents: Vec::new(),
-        }
-    }
 }
 
 /// Unified configuration file structure (~/.vibemate/settings.json)
@@ -53,7 +42,6 @@ impl Default for DashboardConfig {
 #[serde(rename_all = "camelCase")]
 pub struct VibeMateConfig {
     pub app: AppConfig,
-    pub dashboard: DashboardConfig,
     pub providers: Vec<Provider>,
     pub routing_rules: Vec<RoutingRule>,
     /// Persisted list of coding agents (discovered at startup); each has a `featured` flag.
@@ -64,7 +52,6 @@ impl Default for VibeMateConfig {
     fn default() -> Self {
         Self {
             app: AppConfig::default(),
-            dashboard: DashboardConfig::default(),
             providers: Vec::new(),
             routing_rules: Vec::new(),
             coding_agents: Vec::new(),

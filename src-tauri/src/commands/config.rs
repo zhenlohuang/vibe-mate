@@ -55,7 +55,7 @@ pub async fn refresh_coding_agents(
     let merged = merge_coding_agents(
         &config.coding_agents,
         discovered,
-        &config.dashboard.featured_agents,
+        &[],
     );
     store
         .update(|c| c.coding_agents = merged.clone())

@@ -60,7 +60,7 @@ pub fn run() {
                         let merged = merge_coding_agents(
                             &config.coding_agents,
                             discovered,
-                            &config.dashboard.featured_agents,
+                            &[],
                         );
                         if let Err(e) = store_clone.update(|c| c.coding_agents = merged).await {
                             tracing::warn!("Failed to save coding agents config: {}", e);
@@ -73,6 +73,7 @@ pub fn run() {
             });
 
             // Register services to Tauri state management
+            let store_for_proxy = store.clone();
             app.manage(store);
             app.manage(provider_service);
             app.manage(router_service);
@@ -81,13 +82,16 @@ pub fn run() {
             app.manage(agent_auth_service);
             app.manage(proxy_server.clone());
 
-            // Auto-start proxy server on port 12345
+            // Auto-start proxy server on configured port (app.port)
             let proxy_server_clone = proxy_server.clone();
+            let store_clone_for_proxy = store_for_proxy;
             tauri::async_runtime::spawn(async move {
-                if let Err(e) = proxy_server_clone.start(12345).await {
-                    tracing::error!("Failed to start proxy server: {}", e);
+                let config = store_clone_for_proxy.get_config().await;
+                let port = config.app.port;
+                if let Err(e) = proxy_server_clone.start(port).await {
+                    tracing::error!("Failed to start proxy server on port {}: {}", port, e);
                 } else {
-                    tracing::info!("Vibe Mate server started - OpenAI: /api/openai, Anthropic: /api/anthropic");
+                    tracing::info!("Vibe Mate server started on port {} - OpenAI: /api/openai, Anthropic: /api/anthropic", port);
                 }
             });
 

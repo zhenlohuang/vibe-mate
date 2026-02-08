@@ -4,6 +4,7 @@ use tauri::State;
 
 use crate::models::ProxyStatus;
 use crate::services::ProxyServer;
+use crate::storage::ConfigStore;
 
 #[tauri::command]
 pub async fn proxy_status(
@@ -48,10 +49,10 @@ async fn check_health(port: u16) -> bool {
 #[tauri::command]
 pub async fn start_proxy(
     state: State<'_, Arc<ProxyServer>>,
+    store: State<'_, Arc<ConfigStore>>,
 ) -> Result<(), String> {
-    // Get the configured port (default 12345)
-    let port = state.port();
-    
+    let config = store.get_config().await;
+    let port = config.app.port;
     state.start(port).await.map_err(|e| e.to_string())
 }
 

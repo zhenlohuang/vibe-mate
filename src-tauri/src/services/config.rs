@@ -27,6 +27,9 @@ impl ConfigService {
     pub async fn update_config(&self, input: UpdateAppConfigInput) -> Result<AppConfig, ConfigError> {
         self.store
             .update(|config| {
+                if let Some(port) = input.port {
+                    config.app.port = port;
+                }
                 if let Some(enable_proxy) = input.enable_proxy {
                     config.app.enable_proxy = enable_proxy;
                 }
