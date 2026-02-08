@@ -75,9 +75,9 @@ export function AgentConfig({ agentType, configPath }: AgentConfigProps) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileCode className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-medium">Configuration File</span>
+            <span className="text-sm font-medium">Configuration File</span>
           </div>
-          <div className="text-[10px] text-muted-foreground font-mono">
+          <div className="text-meta text-muted-foreground font-mono">
             {configPath || "config.json"}
           </div>
         </div>
@@ -94,7 +94,7 @@ export function AgentConfig({ agentType, configPath }: AgentConfigProps) {
               onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
                 setContent(e.target.value)
               }
-              className="font-mono text-[10px] min-h-[200px] bg-background border-border"
+              className="font-mono text-meta min-h-[200px] bg-background border-border"
               placeholder="Enter configuration JSON..."
             />
           )}
@@ -102,7 +102,7 @@ export function AgentConfig({ agentType, configPath }: AgentConfigProps) {
 
         {/* Footer with note */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <div className="flex items-center gap-1.5 text-meta text-muted-foreground">
             <div className="h-1 w-1 rounded-full bg-muted-foreground/50" />
             <span className="italic">
               Changes require agent restart to take effect.
@@ -110,7 +110,7 @@ export function AgentConfig({ agentType, configPath }: AgentConfigProps) {
           </div>
           <Button
             size="sm"
-            className="h-7 text-xs gap-1.5"
+            className="h-8 text-sm gap-1.5"
             onClick={handleSave}
             disabled={isSaving || isLoading}
           >

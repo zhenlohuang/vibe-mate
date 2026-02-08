@@ -45,13 +45,13 @@ export function DefaultProvider({
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/70 p-3 md:flex-row md:items-center md:gap-3">
       <div className="flex flex-col">
-        <span className="text-sm font-semibold text-foreground">
+        <span className="text-xs font-semibold tracking-wide text-muted-foreground">
           Default Model Provider
         </span>
       </div>
       <div className="w-full md:w-[220px]">
         <Select value={providerId} onValueChange={setProviderId}>
-          <SelectTrigger className="bg-secondary/70 border-0">
+          <SelectTrigger className="h-7 text-xs bg-secondary/70 border-0">
             <SelectValue placeholder="Select provider" />
           </SelectTrigger>
           <SelectContent>
@@ -76,7 +76,7 @@ export function DefaultProvider({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p className="text-xs">Save</p>
+                <p className="text-sm">Save</p>
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -89,7 +89,7 @@ export function DefaultProvider({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p className="text-xs">Cancel</p>
+                <p className="text-sm">Cancel</p>
               </TooltipContent>
             </Tooltip>
           </div>

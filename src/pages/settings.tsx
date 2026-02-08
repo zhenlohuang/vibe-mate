@@ -95,13 +95,13 @@ export function SettingsPage() {
             <div className="flex h-6 w-6 items-center justify-center rounded bg-primary/10">
               <Network className="h-3.5 w-3.5 text-primary" />
             </div>
-            <h2 className="text-sm font-medium">Network Settings</h2>
+            <h2 className="text-base font-medium">Network Settings</h2>
           </div>
 
           <div className="grid grid-cols-[120px_1fr] items-center gap-x-4 gap-y-3 pl-8">
             <Label
               htmlFor="enableProxy"
-              className="text-xs text-muted-foreground"
+              className="text-sm text-muted-foreground"
             >
               Enable Proxy
             </Label>
@@ -118,7 +118,7 @@ export function SettingsPage() {
               <>
                 <Label
                   htmlFor="proxyUrl"
-                  className="text-xs text-muted-foreground"
+                  className="text-sm text-muted-foreground"
                 >
                   Proxy Address
                 </Label>
@@ -132,14 +132,14 @@ export function SettingsPage() {
                     placeholder="http://127.0.0.1:7890"
                     className="h-8 font-mono text-sm"
                   />
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-meta text-muted-foreground">
                     Supports http, https, and socks5 protocols (e.g. socks5://127.0.0.1:1080)
                   </p>
                 </div>
 
                 <Label
                   htmlFor="noProxy"
-                  className="text-xs text-muted-foreground"
+                  className="text-sm text-muted-foreground"
                 >
                   No Proxy
                 </Label>
@@ -153,7 +153,7 @@ export function SettingsPage() {
                     placeholder="localhost, 127.0.0.1, *.local"
                     className="h-8 font-mono text-sm"
                   />
-                  <p className="text-[10px] text-muted-foreground">
+                  <p className="text-meta text-muted-foreground">
                     Comma-separated list of hosts to bypass proxy
                   </p>
                 </div>

@@ -103,7 +103,7 @@ export function Sidebar() {
             </div>
           </div>
         </div>
-        <span className="text-sm font-semibold tracking-tight truncate">
+        <span className="text-base font-semibold tracking-tight truncate">
           Vibe Mate
         </span>
       </div>
@@ -125,14 +125,14 @@ export function Sidebar() {
             />
             <span
               className={cn(
-                "text-xs font-medium",
+                "text-sm font-medium",
                 proxyStatus.isRunning ? "text-success" : "text-error",
               )}
             >
               {proxyStatus.isRunning ? "Online" : "Offline"}
             </span>
           </div>
-          <span className="text-xs font-mono text-muted-foreground">
+          <span className="text-meta font-mono text-muted-foreground">
             :{proxyStatus.port}
           </span>
         </div>

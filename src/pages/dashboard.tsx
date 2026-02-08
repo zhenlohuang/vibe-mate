@@ -189,7 +189,7 @@ export function DashboardPage() {
       <div className="space-y-8">
         {/* API 调用地址 */}
         <section>
-          <h2 className="text-sm font-medium text-foreground mb-2">API Proxy</h2>
+          <h2 className="text-base font-medium text-foreground mb-2">API Proxy</h2>
           <Card className="overflow-hidden">
             <CardContent className="p-2">
               <div className="flex flex-col gap-0.5">
@@ -201,10 +201,10 @@ export function DashboardPage() {
                       key={path}
                       className="flex items-center gap-2 min-h-7 px-1.5 rounded hover:bg-secondary/50"
                     >
-                      <span className="text-[11px] text-muted-foreground w-24 shrink-0">
+                      <span className="text-overline text-muted-foreground w-24 shrink-0">
                         {label.replace(" Compatible API", "")}
                       </span>
-                      <code className="text-[11px] text-foreground truncate flex-1 min-w-0">
+                      <code className="text-overline font-mono text-foreground truncate flex-1 min-w-0">
                         {url}
                       </code>
                       <button
@@ -230,7 +230,7 @@ export function DashboardPage() {
         {/* Coding Agent 列表 */}
         <section>
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h2 className="text-sm font-medium text-foreground">Featured Coding Agents</h2>
+            <h2 className="text-base font-medium text-foreground">Featured Coding Agents</h2>
             <Button
               variant="ghost"
               size="icon"

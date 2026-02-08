@@ -55,6 +55,17 @@
   /* Font families */
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", "Geist Mono", ui-monospace, monospace;
+
+  /* Typography scale (16px base) — caption → overline → meta → xs → sm → base → md → lg → xl */
+  --font-size-caption: 0.5625rem;   /* 9px — badges, tiny labels */
+  --font-size-meta: 0.625rem;      /* 10px — small meta, hints */
+  --font-size-overline: 0.6875rem; /* 11px — overlines, code snippets */
+  --font-size-xs: 0.75rem;         /* 12px — labels, buttons, secondary UI */
+  --font-size-sm: 0.8125rem;       /* 13px — secondary text */
+  --font-size-base: 0.875rem;      /* 14px — body */
+  --font-size-md: 1rem;            /* 16px — section headings */
+  --font-size-lg: 1.125rem;        /* 18px — page title */
+  --font-size-xl: 1.25rem;         /* 20px — hero */
   
   /* Animations */
   --animate-glow: glow 2s ease-in-out infinite alternate;
@@ -111,14 +122,14 @@
 
 html {
   background-color: #09090b;
-  font-size: 14px; /* Base font size for desktop app */
+  font-size: 16px; /* Base for rem typography scale */
 }
 
 body {
   background-color: #09090b;
   color: #fafafa;
   font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
-  font-size: 0.875rem; /* 12.25px - slightly smaller for desktop app */
+  font-size: var(--font-size-base); /* 14px — body */
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -191,6 +202,17 @@ body {
 
 .status-dot-error {
   background-color: #f59e0b;
+}
+
+/* ===== Typography utilities (from theme scale) ===== */
+.text-caption {
+  font-size: var(--font-size-caption);
+}
+.text-meta {
+  font-size: var(--font-size-meta);
+}
+.text-overline {
+  font-size: var(--font-size-overline);
 }
 
 /* ===== Utility Classes ===== */

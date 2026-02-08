@@ -108,14 +108,14 @@ export function RoutingRuleItem({
         <GripVertical className="h-4 w-4" />
       </button>
 
-      <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/70 w-10 text-center">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground w-10 text-center shrink-0">
         {label}
       </div>
 
       {/* Match Pattern */}
-      <div className="flex-1 max-w-[200px]">
+      <div className="flex-1 max-w-[200px] min-w-0">
         <Input
-          className="font-mono text-[11px] bg-secondary/70 border-0"
+          className="h-7 font-mono text-xs bg-secondary/70 border-0"
           placeholder={placeholder}
           value={draft.matchPattern}
           onChange={(e) => setDraft({ ...draft, matchPattern: e.target.value })}
@@ -132,7 +132,7 @@ export function RoutingRuleItem({
           value={draft.providerId}
           onValueChange={(providerId) => setDraft({ ...draft, providerId })}
         >
-          <SelectTrigger className="bg-secondary/70 border-0">
+          <SelectTrigger className="h-7 text-xs bg-secondary/70 border-0">
             <SelectValue placeholder="Select provider" />
           </SelectTrigger>
           <SelectContent>
@@ -148,7 +148,7 @@ export function RoutingRuleItem({
       {/* Model Rewrite */}
       <div className="flex-1 max-w-[200px]">
         <Input
-          className="font-mono text-[11px] bg-secondary/70 border-0"
+          className="h-7 font-mono text-xs bg-secondary/70 border-0"
           placeholder="(Optional)"
           value={draft.modelRewrite || ""}
           onChange={(e) =>
@@ -172,7 +172,7 @@ export function RoutingRuleItem({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p className="text-xs">Save</p>
+                  <p className="text-sm">Save</p>
                 </TooltipContent>
               </Tooltip>
 
@@ -186,7 +186,7 @@ export function RoutingRuleItem({
                   </button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">
-                  <p className="text-xs">Cancel</p>
+                  <p className="text-sm">Cancel</p>
                 </TooltipContent>
               </Tooltip>
             </>
@@ -203,7 +203,7 @@ export function RoutingRuleItem({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p className="text-xs">Duplicate</p>
+                <p className="text-sm">Duplicate</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -219,7 +219,7 @@ export function RoutingRuleItem({
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom">
-                <p className="text-xs">Delete</p>
+                <p className="text-sm">Delete</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -289,13 +289,13 @@ export function NewRuleItem({
         <GripVertical className="h-4 w-4" />
       </div>
 
-      <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/70 w-10 text-center">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground w-10 text-center shrink-0">
         {label}
       </div>
 
-      <div className="flex-1 max-w-[200px]">
+      <div className="flex-1 max-w-[200px] min-w-0">
         <Input
-          className="font-mono text-[11px] bg-secondary/70 border-0"
+          className="h-7 font-mono text-xs bg-secondary/70 border-0"
           placeholder={placeholder}
           value={matchPattern}
           onChange={(e) => setMatchPattern(e.target.value)}
@@ -308,7 +308,7 @@ export function NewRuleItem({
 
       <div className="w-[130px]">
         <Select value={providerId} onValueChange={setProviderId}>
-          <SelectTrigger className="bg-secondary/70 border-0">
+          <SelectTrigger className="h-7 text-xs bg-secondary/70 border-0">
             <SelectValue placeholder="Select provider" />
           </SelectTrigger>
           <SelectContent>
@@ -321,9 +321,9 @@ export function NewRuleItem({
         </Select>
       </div>
 
-      <div className="flex-1 max-w-[200px]">
+      <div className="flex-1 max-w-[200px] min-w-0">
         <Input
-          className="font-mono text-[11px] bg-secondary/70 border-0"
+          className="h-7 font-mono text-xs bg-secondary/70 border-0"
           placeholder="(Optional)"
           value={modelRewrite}
           onChange={(e) => setModelRewrite(e.target.value)}
@@ -342,7 +342,7 @@ export function NewRuleItem({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p className="text-xs">Confirm</p>
+              <p className="text-sm">Confirm</p>
             </TooltipContent>
           </Tooltip>
 
@@ -356,7 +356,7 @@ export function NewRuleItem({
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              <p className="text-xs">Cancel</p>
+              <p className="text-sm">Cancel</p>
             </TooltipContent>
           </Tooltip>
         </div>

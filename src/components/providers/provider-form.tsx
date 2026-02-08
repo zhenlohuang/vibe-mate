@@ -113,10 +113,10 @@ export function ProviderForm({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[420px]">
         <DialogHeader>
-          <DialogTitle className="text-sm">
+          <DialogTitle className="text-base">
             {isEdit ? "Edit Provider" : "Add Provider"}
           </DialogTitle>
-          <DialogDescription className="text-xs">
+          <DialogDescription className="text-sm">
             {isEdit
               ? "Update the provider configuration."
               : "Add a new AI model provider to your configuration."}
@@ -191,7 +191,7 @@ export function ProviderForm({
               required={!isEdit}
             />
             {isEdit && (
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-meta text-muted-foreground">
                 Leave empty to keep the existing API key
               </p>
             )}

@@ -101,11 +101,11 @@ export function ProviderCard({
 
           {/* API Key */}
           <div className="space-y-1">
-            <div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
-              Key
+<div className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground">
+            Key
             </div>
-            <div className="rounded-md bg-secondary/50 px-2 py-1.5 font-mono text-[11px] text-muted-foreground">
-              {provider.apiKey ? `${provider.apiKey.slice(0, 7)}${"•".repeat(24)}` : "••••••••"}
+            <div className="rounded-md bg-secondary/50 px-2 py-1.5 font-mono text-[11px] text-muted-foreground truncate min-w-0">
+              {provider.apiKey ? `${provider.apiKey.slice(0, 7)}${"•".repeat(12)}` : "••••••••"}
             </div>
           </div>
 
