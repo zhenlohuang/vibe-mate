@@ -1,7 +1,7 @@
 use crate::agents::{
     auth::{auth_path_for_agent_type, generate_pkce_codes, save_auth_file, AuthFlowStart},
     auth::{AgentAuthContext, AgentAuthError},
-    binary_is_installed, AgentMetadata, CodingAgentDefinition,
+    AgentMetadata, CodingAgentDefinition,
 };
 use crate::models::{AgentProviderType, AgentQuota, AgentType};
 
@@ -37,10 +37,6 @@ impl CodexAgent {
 impl CodingAgentDefinition for CodexAgent {
     fn metadata(&self) -> &'static AgentMetadata {
         &Self::METADATA
-    }
-
-    fn is_installed(&self) -> bool {
-        binary_is_installed(Self::METADATA.binary)
     }
 }
 

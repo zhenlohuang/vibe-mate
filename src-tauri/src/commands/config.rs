@@ -49,7 +49,6 @@ pub async fn refresh_coding_agents(
 ) -> Result<Vec<CodingAgent>, String> {
     let discovered = agent_service
         .discover_agents()
-        .await
         .map_err(|e| e.to_string())?;
     let config = store.get_config().await;
     let merged = merge_coding_agents(

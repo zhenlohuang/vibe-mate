@@ -1,8 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use futures_util::future::join_all;
-use crate::agents::{agent_metadata, all_agent_definitions, check_binary_installed_and_version};
+use crate::agents::{agent_metadata, all_agent_definitions, is_binary_installed};
 use crate::models::{AgentStatus, AgentType, CodingAgent};
 
 #[derive(Debug, thiserror::Error)]
@@ -18,46 +17,34 @@ impl AgentService {
         Self
     }
 
-    /// Discover installed coding agents in the system (parallel detection).
-    /// Only returns agents that are currently installed (binary present).
-    pub async fn discover_agents(&self) -> Result<Vec<CodingAgent>, AgentError> {
-        let agent_types: Vec<AgentType> = all_agent_definitions()
+    /// Discover installed coding agents in the system.
+    /// Only returns agents that are currently installed (binary present on disk).
+    pub fn discover_agents(&self) -> Result<Vec<CodingAgent>, AgentError> {
+        let installed: Vec<CodingAgent> = all_agent_definitions()
             .into_iter()
-            .map(|definition| definition.metadata().agent_type.clone())
-            .collect();
-
-        let agents = join_all(
-            agent_types
-                .iter()
-                .map(|agent_type| self.check_agent(agent_type)),
-        )
-        .await;
-
-        let installed: Vec<CodingAgent> = agents
-            .into_iter()
+            .map(|def| self.check_agent(&def.metadata().agent_type))
             .filter(|a| a.status == AgentStatus::Installed)
             .collect();
         Ok(installed)
     }
 
-    /// Check a specific agent's status (single binary --version call with timeout).
-    async fn check_agent(&self, agent_type: &AgentType) -> CodingAgent {
+    /// Check a specific agent's installation status by resolving its binary path.
+    fn check_agent(&self, agent_type: &AgentType) -> CodingAgent {
         let metadata = agent_metadata(agent_type);
-        let (is_installed, version) = check_binary_installed_and_version(metadata.binary).await;
+        let installed = is_binary_installed(metadata.binary);
 
         let mut agent = CodingAgent::new(agent_type.clone());
-        agent.status = if is_installed {
+        agent.status = if installed {
             AgentStatus::Installed
         } else {
             AgentStatus::NotInstalled
         };
-        agent.version = version;
         agent
     }
 
     /// Check status of a specific agent
-    pub async fn check_status(&self, agent_type: &AgentType) -> Result<CodingAgent, AgentError> {
-        Ok(self.check_agent(agent_type).await)
+    pub fn check_status(&self, agent_type: &AgentType) -> Result<CodingAgent, AgentError> {
+        Ok(self.check_agent(agent_type))
     }
 
     /// Get the config file path for an agent

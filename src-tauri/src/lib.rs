@@ -19,16 +19,15 @@ fn get_config_dir() -> std::path::PathBuf {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // Initialize tracing for logging
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive("vibe_mate=debug".parse().unwrap())
-                .add_directive("tower_http=debug".parse().unwrap()),
-        )
-        .init();
-
     tauri::Builder::default()
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::LogDir { file_name: None },
+                ))
+                .level(log::LevelFilter::Debug)
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             // Use ~/.vibemate/ as config directory
@@ -54,7 +53,7 @@ pub fn run() {
             let store_clone = store.clone();
             let agent_service_clone = agent_service.clone();
             tauri::async_runtime::block_on(async move {
-                match agent_service_clone.discover_agents().await {
+                match agent_service_clone.discover_agents() {
                     Ok(discovered) => {
                         let config = store_clone.get_config().await;
                         let merged = merge_coding_agents(

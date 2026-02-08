@@ -4,7 +4,7 @@ use crate::agents::{
         parse_google_id_token, refresh_google_token, save_auth_file, should_refresh_google,
         AgentAuthContext, AgentAuthError, AuthFlowStart,
     },
-    binary_is_installed, AgentMetadata, CodingAgentDefinition,
+    AgentMetadata, CodingAgentDefinition,
 };
 use crate::models::{AgentProviderType, AgentQuota, AgentType};
 
@@ -41,10 +41,6 @@ impl GeminiCliAgent {
 impl CodingAgentDefinition for GeminiCliAgent {
     fn metadata(&self) -> &'static AgentMetadata {
         &Self::METADATA
-    }
-
-    fn is_installed(&self) -> bool {
-        binary_is_installed(Self::METADATA.binary)
     }
 }
 

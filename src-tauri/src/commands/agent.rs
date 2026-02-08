@@ -11,7 +11,6 @@ pub async fn check_status(
 ) -> Result<CodingAgent, String> {
     service
         .check_status(&agent_type)
-        .await
         .map_err(|e| e.to_string())
 }
 

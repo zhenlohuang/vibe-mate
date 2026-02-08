@@ -4,10 +4,8 @@ mod gemini_cli;
 mod antigravity;
 pub(crate) mod auth;
 
+use std::path::PathBuf;
 use std::process::Command;
-use std::time::Duration;
-
-use tokio::process::Command as TokioCommand;
 
 use crate::models::{AgentProviderType, AgentQuota, AgentType};
 
@@ -28,52 +26,207 @@ pub struct AgentMetadata {
 
 pub trait CodingAgentDefinition {
     fn metadata(&self) -> &'static AgentMetadata;
-    #[allow(dead_code)] // kept for sync trait impls; discover uses check_binary_installed_and_version
-    fn is_installed(&self) -> bool;
 }
 
-#[allow(dead_code)] // kept for sync trait impls; discover uses check_binary_installed_and_version
-pub(crate) fn binary_is_installed(binary: &str) -> bool {
-    Command::new(binary)
-        .arg("--version")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false)
+/// Build a list of candidate directories where CLI tools are commonly installed.
+/// When the app is packaged (e.g. macOS .app bundle), the inherited PATH is
+/// minimal (`/usr/bin:/bin:/usr/sbin:/sbin`), so we must also look in well-known
+/// locations to find binaries like `claude`, `codex`, `gemini`, etc.
+fn common_binary_search_dirs() -> Vec<PathBuf> {
+    let mut dirs: Vec<PathBuf> = Vec::new();
+
+    #[cfg(unix)]
+    {
+        // System-wide locations
+        dirs.push(PathBuf::from("/usr/local/bin"));
+        dirs.push(PathBuf::from("/usr/bin"));
+
+        // macOS Homebrew
+        #[cfg(target_os = "macos")]
+        {
+            dirs.push(PathBuf::from("/opt/homebrew/bin")); // Apple Silicon
+            dirs.push(PathBuf::from("/usr/local/Homebrew/bin")); // Intel
+        }
+
+        // Linux snap / flatpak
+        #[cfg(target_os = "linux")]
+        {
+            dirs.push(PathBuf::from("/snap/bin"));
+        }
+
+        if let Some(home) = dirs::home_dir() {
+            // npm global installs
+            dirs.push(home.join(".npm/bin"));
+            dirs.push(home.join(".npm-global/bin"));
+            // pnpm global
+            dirs.push(home.join(".local/share/pnpm"));
+            // yarn global
+            dirs.push(home.join(".yarn/bin"));
+            // bun global
+            dirs.push(home.join(".bun/bin"));
+            // cargo installs
+            dirs.push(home.join(".cargo/bin"));
+            // pipx / user local
+            dirs.push(home.join(".local/bin"));
+            // Antigravity CLI
+            dirs.push(home.join(".antigravity/antigravity/bin"));
+            // nvm-managed Node.js — scan all installed versions
+            let nvm_versions = home.join(".nvm/versions/node");
+            if let Ok(entries) = std::fs::read_dir(&nvm_versions) {
+                for entry in entries.flatten() {
+                    let bin = entry.path().join("bin");
+                    if bin.is_dir() {
+                        dirs.push(bin);
+                    }
+                }
+            }
+            // fnm-managed Node.js
+            let fnm_versions = home.join(".local/share/fnm/node-versions");
+            if let Ok(entries) = std::fs::read_dir(&fnm_versions) {
+                for entry in entries.flatten() {
+                    let bin = entry.path().join("installation/bin");
+                    if bin.is_dir() {
+                        dirs.push(bin);
+                    }
+                }
+            }
+            // Volta-managed Node.js
+            dirs.push(home.join(".volta/bin"));
+        }
+
+        // macOS .app bundles may ship their own CLI binaries
+        #[cfg(target_os = "macos")]
+        {
+            // Antigravity.app ships a CLI binary inside the app bundle
+            dirs.push(PathBuf::from(
+                "/Applications/Antigravity.app/Contents/Resources/app/bin",
+            ));
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        if let Some(home) = dirs::home_dir() {
+            // npm global installs (default on Windows)
+            dirs.push(home.join("AppData\\Roaming\\npm"));
+            // pnpm global
+            dirs.push(home.join("AppData\\Local\\pnpm"));
+            // yarn global
+            dirs.push(home.join("AppData\\Local\\Yarn\\bin"));
+            // bun global
+            dirs.push(home.join(".bun\\bin"));
+            // cargo installs
+            dirs.push(home.join(".cargo\\bin"));
+            // Scoop
+            dirs.push(home.join("scoop\\shims"));
+            // Volta
+            dirs.push(home.join(".volta\\bin"));
+            // Antigravity CLI
+            dirs.push(home.join(".antigravity\\antigravity\\bin"));
+            // nvm-windows
+            let nvm_dir = home.join("AppData\\Roaming\\nvm");
+            if let Ok(entries) = std::fs::read_dir(&nvm_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_dir() {
+                        dirs.push(path);
+                    }
+                }
+            }
+            // fnm on Windows
+            let fnm_versions = home.join("AppData\\Roaming\\fnm\\node-versions");
+            if let Ok(entries) = std::fs::read_dir(&fnm_versions) {
+                for entry in entries.flatten() {
+                    let bin = entry.path().join("installation");
+                    if bin.is_dir() {
+                        dirs.push(bin);
+                    }
+                }
+            }
+        }
+        // Common system paths
+        if let Ok(program_files) = std::env::var("ProgramFiles") {
+            dirs.push(PathBuf::from(&program_files).join("nodejs"));
+            // Antigravity on Windows
+            dirs.push(PathBuf::from(&program_files).join("Antigravity\\resources\\app\\bin"));
+        }
+        if let Ok(program_files_x86) = std::env::var("ProgramFiles(x86)") {
+            dirs.push(PathBuf::from(&program_files_x86).join("nodejs"));
+        }
+        if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+            // Antigravity per-user install on Windows
+            dirs.push(PathBuf::from(&local_app_data).join("Programs\\Antigravity\\resources\\app\\bin"));
+        }
+    }
+
+    dirs
 }
 
-/// Run `binary --version` once with a timeout; returns (is_installed, version_string).
-/// Used by discover_agents to avoid running the same command twice per agent.
-const BINARY_CHECK_TIMEOUT_SECS: u64 = 2;
-
-pub async fn check_binary_installed_and_version(binary: &str) -> (bool, Option<String>) {
-    let output = tokio::time::timeout(
-        Duration::from_secs(BINARY_CHECK_TIMEOUT_SECS),
-        TokioCommand::new(binary).arg("--version").output(),
-    )
-    .await;
-
-    let output = match output {
-        Ok(Ok(out)) => out,
-        _ => return (false, None),
-    };
-
-    if !output.status.success() {
-        return (false, None);
+/// Resolve the full path of a binary by first checking PATH, then searching
+/// common installation directories. Returns `None` if not found anywhere.
+fn resolve_binary_path(binary: &str) -> Option<PathBuf> {
+    // Check if binary already contains a path separator — treat as absolute/relative
+    let binary_path = PathBuf::from(binary);
+    if binary_path.components().count() > 1 && binary_path.exists() {
+        return Some(binary_path);
     }
 
-    let version = String::from_utf8_lossy(&output.stdout)
-        .trim()
-        .lines()
-        .next()
-        .unwrap_or_default()
-        .trim()
-        .to_string();
-
-    if version.is_empty() {
-        (true, None)
-    } else {
-        (true, Some(version))
+    // Try PATH first via `which` (Unix) / `where` (Windows)
+    #[cfg(unix)]
+    {
+        if let Ok(output) = Command::new("which").arg(binary).output() {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                if !path.is_empty() {
+                    return Some(PathBuf::from(path));
+                }
+            }
+        }
     }
+    #[cfg(windows)]
+    {
+        if let Ok(output) = Command::new("where").arg(binary).output() {
+            if output.status.success() {
+                let path = String::from_utf8_lossy(&output.stdout)
+                    .lines()
+                    .next()
+                    .unwrap_or_default()
+                    .trim()
+                    .to_string();
+                if !path.is_empty() {
+                    return Some(PathBuf::from(path));
+                }
+            }
+        }
+    }
+
+    // Fallback: search common installation directories
+    let search_dirs = common_binary_search_dirs();
+
+    #[cfg(windows)]
+    let binary_names = [format!("{}.cmd", binary), format!("{}.exe", binary), binary.to_string()];
+    #[cfg(not(windows))]
+    let binary_names = [binary.to_string()];
+
+    for dir in &search_dirs {
+        for name in &binary_names {
+            let candidate = dir.join(name);
+            if candidate.is_file() {
+                return Some(candidate);
+            }
+        }
+    }
+
+    None
+}
+
+/// Check whether a binary is installed by resolving its path.
+///
+/// When the app runs as a packaged bundle (e.g. macOS .app), the process PATH is
+/// minimal. We therefore resolve the binary via [`resolve_binary_path`] which also
+/// searches well-known installation directories.
+pub(crate) fn is_binary_installed(binary: &str) -> bool {
+    resolve_binary_path(binary).is_some()
 }
 
 static ANTIGRAVITY_AGENT: AntigravityAgent = AntigravityAgent;
