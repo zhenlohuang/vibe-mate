@@ -59,7 +59,6 @@ pub fn run() {
                         let merged = merge_coding_agents(
                             &config.coding_agents,
                             discovered,
-                            &[],
                         );
                         if let Err(e) = store_clone.update(|c| c.coding_agents = merged).await {
                             tracing::warn!("Failed to save coding agents config: {}", e);

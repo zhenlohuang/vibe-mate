@@ -215,147 +215,7 @@ async fn generic_proxy_handler(
     State(state): State<AppState>,
     req: Request<Body>,
 ) -> Result<Response<Body>, StatusCode> {
-    state.server.increment_request_count();
-
-    // Get the path from the request and strip the /api prefix
-    let full_path = req.uri().path().to_string();
-    let path = full_path
-        .strip_prefix("/api")
-        .unwrap_or(&full_path)
-        .to_string();
-    let method = req.method().clone();
-
-    tracing::debug!(
-        "Generic proxy request: {} {} (original: {})",
-        method,
-        path,
-        full_path
-    );
-
-    // Read the request body
-    let (parts, body) = req.into_parts();
-    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            tracing::error!("Failed to read request body: {}", e);
-            return Err(StatusCode::BAD_REQUEST);
-        }
-    };
-
-    // Extract model from request body (for chat/completions requests)
-    let model_name = extract_model_from_body(&body_bytes);
-
-    tracing::debug!("Request model: {:?}", model_name);
-
-    // Get config and find the matching provider
-    let config = state.server.config_store().get_config().await;
-
-    let resolved = match resolve_provider(
-        &config,
-        ApiGroup::Generic,
-        &full_path,
-        model_name.as_deref(),
-    ) {
-        Some(r) => r,
-        None => {
-            tracing::error!("No provider found for model: {:?}", model_name);
-            return Ok(error_response(
-                StatusCode::BAD_GATEWAY,
-                "No provider configured. Please add a provider in Vibe Mate settings.",
-            ));
-        }
-    };
-
-    // Ensure we have a valid API base URL (only Model providers have this)
-    let api_base_url = match resolved.provider.api_base_url.as_ref() {
-        Some(url) => url,
-        None => {
-            return Ok(error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Provider has no API base URL configured",
-            ));
-        }
-    };
-
-    tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}",
-        resolved.provider.name,
-        api_base_url,
-        model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model
-    );
-
-    // Build the target URL - handle the case where api_base_url already contains /v1
-    let base_url = api_base_url.trim_end_matches('/');
-    let target_url = if base_url.ends_with("/v1") && path.starts_with("/v1") {
-        // If base URL ends with /v1 and path starts with /v1, strip /v1 from path
-        format!("{}{}", base_url, &path[3..])
-    } else {
-        format!("{}{}", base_url, path)
-    };
-
-    // Prepare the request body (potentially rewrite the model)
-    let final_body = if resolved.model_rewritten {
-        rewrite_model_in_body(&body_bytes, &resolved.final_model)
-    } else {
-        body_bytes.to_vec()
-    };
-
-    // Select HTTP client based on provider's enable_proxy setting
-    let http_client = &state.http_client;
-
-    // Build the outgoing request
-    let mut outgoing_req = http_client.request(method.clone(), &target_url);
-
-    // Copy headers, but replace Authorization and Host
-    for (key, value) in parts.headers.iter() {
-        if should_skip_request_header(key) {
-            continue;
-        }
-        if let Ok(v) = value.to_str() {
-            outgoing_req = outgoing_req.header(key.as_str(), v);
-        }
-    }
-
-    // Add the API key based on provider type
-    outgoing_req = add_auth_header(outgoing_req, &resolved.provider);
-
-    // Set content type and body
-    outgoing_req = outgoing_req
-        .header(header::CONTENT_TYPE, "application/json")
-        .body(final_body);
-
-    // Send the request
-    tracing::debug!("Sending request to: {}", target_url);
-    let response = match outgoing_req.send().await {
-        Ok(resp) => {
-            tracing::info!("Received response: {} from {}", resp.status(), target_url);
-            resp
-        }
-        Err(e) => {
-            tracing::error!("Failed to forward request to {}: {}", target_url, e);
-            return Ok(error_response(
-                StatusCode::BAD_GATEWAY,
-                &format!("Failed to connect to provider: {}", e),
-            ));
-        }
-    };
-
-    // Check if it's a streaming response
-    let is_streaming = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map(|ct| ct.contains("text/event-stream"))
-        .unwrap_or(false);
-
-    if is_streaming {
-        // Handle streaming response
-        handle_streaming_response(response).await
-    } else {
-        // Handle regular response
-        handle_regular_response(response).await
-    }
+    proxy_handler_inner(state, req, "/api", ApiGroup::Generic, true).await
 }
 
 /// OpenAI compatible API proxy handler
@@ -363,143 +223,7 @@ async fn openai_proxy_handler(
     State(state): State<AppState>,
     req: Request<Body>,
 ) -> Result<Response<Body>, StatusCode> {
-    state.server.increment_request_count();
-
-    // Get the path from the request and strip the /api/openai prefix
-    let full_path = req.uri().path().to_string();
-    let path = full_path
-        .strip_prefix("/api/openai")
-        .unwrap_or(&full_path)
-        .to_string();
-    let method = req.method().clone();
-
-    tracing::debug!(
-        "OpenAI proxy request: {} {} (original: {})",
-        method,
-        path,
-        full_path
-    );
-
-    // Read the request body
-    let (parts, body) = req.into_parts();
-    let body_bytes = match axum::body::to_bytes(body, usize::MAX).await {
-        Ok(bytes) => bytes,
-        Err(e) => {
-            tracing::error!("Failed to read request body: {}", e);
-            return Err(StatusCode::BAD_REQUEST);
-        }
-    };
-
-    // Extract model from request body (for chat/completions requests)
-    let model_name = extract_model_from_body(&body_bytes);
-
-    tracing::debug!("Request model: {:?}", model_name);
-
-    // Get config and find the matching provider
-    let config = state.server.config_store().get_config().await;
-
-    let resolved =
-        match resolve_provider(&config, ApiGroup::OpenAI, &full_path, model_name.as_deref()) {
-            Some(r) => r,
-            None => {
-                tracing::error!("No provider found for model: {:?}", model_name);
-                return Ok(error_response(
-                    StatusCode::BAD_GATEWAY,
-                    "No provider configured. Please add a provider in Vibe Mate settings.",
-                ));
-            }
-        };
-
-    // Ensure we have a valid API base URL (only Model providers have this)
-    let api_base_url = match resolved.provider.api_base_url.as_ref() {
-        Some(url) => url,
-        None => {
-            return Ok(error_response(
-                StatusCode::INTERNAL_SERVER_ERROR,
-                "Provider has no API base URL configured",
-            ));
-        }
-    };
-
-    tracing::info!(
-        "Routing to provider: {} ({}), model: {} -> {}",
-        resolved.provider.name,
-        api_base_url,
-        model_name.as_deref().unwrap_or("unknown"),
-        resolved.final_model
-    );
-
-    // Build the target URL - handle the case where api_base_url already contains /v1
-    let base_url = api_base_url.trim_end_matches('/');
-    let target_url = if base_url.ends_with("/v1") && path.starts_with("/v1") {
-        // If base URL ends with /v1 and path starts with /v1, strip /v1 from path
-        format!("{}{}", base_url, &path[3..])
-    } else {
-        format!("{}{}", base_url, path)
-    };
-
-    // Prepare the request body (potentially rewrite the model)
-    let final_body = if resolved.model_rewritten {
-        rewrite_model_in_body(&body_bytes, &resolved.final_model)
-    } else {
-        body_bytes.to_vec()
-    };
-
-    // Select HTTP client based on provider's enable_proxy setting
-    let http_client = &state.http_client;
-
-    // Build the outgoing request
-    let mut outgoing_req = http_client.request(method.clone(), &target_url);
-
-    // Copy headers, but replace Authorization and Host
-    for (key, value) in parts.headers.iter() {
-        if should_skip_request_header(key) {
-            continue;
-        }
-        if let Ok(v) = value.to_str() {
-            outgoing_req = outgoing_req.header(key.as_str(), v);
-        }
-    }
-
-    // Add the API key based on provider type
-    outgoing_req = add_auth_header(outgoing_req, &resolved.provider);
-
-    // Set content type and body
-    outgoing_req = outgoing_req
-        .header(header::CONTENT_TYPE, "application/json")
-        .body(final_body);
-
-    // Send the request
-    tracing::debug!("Sending request to: {}", target_url);
-    let response = match outgoing_req.send().await {
-        Ok(resp) => {
-            tracing::info!("Received response: {} from {}", resp.status(), target_url);
-            resp
-        }
-        Err(e) => {
-            tracing::error!("Failed to forward request to {}: {}", target_url, e);
-            return Ok(error_response(
-                StatusCode::BAD_GATEWAY,
-                &format!("Failed to connect to provider: {}", e),
-            ));
-        }
-    };
-
-    // Check if it's a streaming response
-    let is_streaming = response
-        .headers()
-        .get(header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .map(|ct| ct.contains("text/event-stream"))
-        .unwrap_or(false);
-
-    if is_streaming {
-        // Handle streaming response
-        handle_streaming_response(response).await
-    } else {
-        // Handle regular response
-        handle_regular_response(response).await
-    }
+    proxy_handler_inner(state, req, "/api/openai", ApiGroup::OpenAI, true).await
 }
 
 /// Anthropic API proxy handler
@@ -507,18 +231,29 @@ async fn anthropic_proxy_handler(
     State(state): State<AppState>,
     req: Request<Body>,
 ) -> Result<Response<Body>, StatusCode> {
+    proxy_handler_inner(state, req, "/api/anthropic", ApiGroup::Anthropic, false).await
+}
+
+/// Shared proxy handler logic parameterized by path prefix, API group, and v1 dedup behavior
+async fn proxy_handler_inner(
+    state: AppState,
+    req: Request<Body>,
+    prefix: &str,
+    api_group: ApiGroup,
+    dedup_v1: bool,
+) -> Result<Response<Body>, StatusCode> {
     state.server.increment_request_count();
 
-    // Get the path from the request and strip the /api/anthropic prefix
     let full_path = req.uri().path().to_string();
     let path = full_path
-        .strip_prefix("/api/anthropic")
+        .strip_prefix(prefix)
         .unwrap_or(&full_path)
         .to_string();
     let method = req.method().clone();
 
     tracing::debug!(
-        "Anthropic proxy request: {} {} (original: {})",
+        "{:?} proxy request: {} {} (original: {})",
+        api_group,
         method,
         path,
         full_path
@@ -544,7 +279,7 @@ async fn anthropic_proxy_handler(
 
     let resolved = match resolve_provider(
         &config,
-        ApiGroup::Anthropic,
+        api_group,
         &full_path,
         model_name.as_deref(),
     ) {
@@ -558,7 +293,7 @@ async fn anthropic_proxy_handler(
         }
     };
 
-    // Ensure we have a valid API base URL (only Model providers have this)
+    // Ensure we have a valid API base URL
     let api_base_url = match resolved.provider.api_base_url.as_ref() {
         Some(url) => url,
         None => {
@@ -577,9 +312,13 @@ async fn anthropic_proxy_handler(
         resolved.final_model
     );
 
-    // Build the target URL for Anthropic
+    // Build the target URL
     let base_url = api_base_url.trim_end_matches('/');
-    let target_url = format!("{}{}", base_url, path);
+    let target_url = if dedup_v1 && base_url.ends_with("/v1") && path.starts_with("/v1") {
+        format!("{}{}", base_url, &path[3..])
+    } else {
+        format!("{}{}", base_url, path)
+    };
 
     // Prepare the request body (potentially rewrite the model)
     let final_body = if resolved.model_rewritten {
@@ -588,13 +327,10 @@ async fn anthropic_proxy_handler(
         body_bytes.to_vec()
     };
 
-    // Select HTTP client based on provider's enable_proxy setting
-    let http_client = &state.http_client;
-
     // Build the outgoing request
-    let mut outgoing_req = http_client.request(method.clone(), &target_url);
+    let mut outgoing_req = state.http_client.request(method.clone(), &target_url);
 
-    // Copy headers, but replace Authorization and Host
+    // Copy headers, skipping hop-by-hop and auth headers
     for (key, value) in parts.headers.iter() {
         if should_skip_request_header(key) {
             continue;
@@ -637,10 +373,8 @@ async fn anthropic_proxy_handler(
         .unwrap_or(false);
 
     if is_streaming {
-        // Handle streaming response
         handle_streaming_response(response).await
     } else {
-        // Handle regular response
         handle_regular_response(response).await
     }
 }

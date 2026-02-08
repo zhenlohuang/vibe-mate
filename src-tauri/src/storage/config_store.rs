@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::fs;
 use tokio::sync::RwLock;
 
-use crate::models::{AgentType, CodingAgent, VibeMateConfig};
+use crate::models::{CodingAgent, VibeMateConfig};
 
 const CONFIG_FILE: &str = "settings.json";
 
@@ -40,48 +40,13 @@ impl ConfigStore {
         Ok(())
     }
 
-    /// Load configuration from file. Migrates legacy config (e.g. drops Agent providers).
+    /// Load configuration from file
     pub async fn load(&self) -> Result<(), StorageError> {
         let path = self.config_path();
         let config = if path.exists() {
             let content = fs::read_to_string(&path).await?;
-            let raw: serde_json::Value = serde_json::from_str(&content)?;
-
-            match serde_json::from_value::<VibeMateConfig>(raw.clone()) {
-                Ok(c) => c,
-                Err(_) => {
-                    // Legacy config may contain Agent providers with old type enum; keep only model providers
-                    let app = raw
-                        .get("app")
-                        .and_then(|v| serde_json::from_value(v.clone()).ok())
-                        .unwrap_or_default();
-                    let routing_rules = raw
-                        .get("routingRules")
-                        .or_else(|| raw.get("routing_rules"))
-                        .and_then(|v| serde_json::from_value(v.clone()).ok())
-                        .unwrap_or_default();
-                    let providers: Vec<crate::models::Provider> = raw
-                        .get("providers")
-                        .and_then(|v| v.as_array())
-                        .map(|arr| {
-                            arr.iter()
-                                .filter_map(|v| serde_json::from_value(v.clone()).ok())
-                                .collect()
-                        })
-                        .unwrap_or_default();
-                    let coding_agents = raw
-                        .get("codingAgents")
-                        .or_else(|| raw.get("coding_agents"))
-                        .and_then(|v| serde_json::from_value(v.clone()).ok())
-                        .unwrap_or_default();
-                    VibeMateConfig {
-                        app,
-                        providers,
-                        routing_rules,
-                        coding_agents,
-                    }
-                }
-            }
+            serde_json::from_str::<VibeMateConfig>(&content)
+                .unwrap_or_default()
         } else {
             VibeMateConfig::default()
         };
@@ -117,37 +82,22 @@ impl ConfigStore {
 }
 
 /// Merge discovered agents with stored config. Keeps only agents in `discovered` (cleans up removed types).
-/// Preserves `featured` from existing config, or migrates from `dashboard_featured` when existing is empty.
+/// Preserves `featured` from existing config; new agents default to featured.
 pub fn merge_coding_agents(
     existing: &[CodingAgent],
     discovered: Vec<CodingAgent>,
-    dashboard_featured: &[String],
 ) -> Vec<CodingAgent> {
-    let use_dashboard_migration =
-        existing.is_empty() && !dashboard_featured.is_empty();
     discovered
         .into_iter()
         .map(|mut d| {
-            let featured = existing
+            d.featured = existing
                 .iter()
                 .find(|e| e.agent_type == d.agent_type)
                 .map(|e| e.featured)
-                .unwrap_or_else(|| {
-                    if use_dashboard_migration {
-                        let key = agent_type_to_config_key(&d.agent_type);
-                        dashboard_featured.iter().any(|s| s == &key)
-                    } else {
-                        true
-                    }
-                });
-            d.featured = featured;
+                .unwrap_or(true);
             d
         })
         .collect()
-}
-
-fn agent_type_to_config_key(agent_type: &AgentType) -> String {
-    format!("{:?}", agent_type)
 }
 
 #[cfg(test)]
