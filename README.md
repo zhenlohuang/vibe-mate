@@ -44,6 +44,21 @@ Vibe Mate is a cross-platform desktop application that acts as a **smart proxy**
   <p><em>Dashboard — Proxy endpoints and coding agent quota overview</em></p>
 </div>
 
+<div align="center">
+  <img src="docs/screenshots/coding_agents.png" alt="Coding Agents" width="800"/>
+  <p><em>Coding Agents — Discover and manage Claude Code, Codex, Gemini CLI with one-click login</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/screenshots/providers.png" alt="Providers" width="800"/>
+  <p><em>Providers — Add and test connections to OpenAI-compatible or Anthropic-compatible APIs</em></p>
+</div>
+
+<div align="center">
+  <img src="docs/screenshots/routing_rules.png" alt="Routing Rules" width="800"/>
+  <p><em>Routing Rules — Priority-based rules with glob patterns and model rewriting</em></p>
+</div>
+
 ## Tech Stack
 
 | Layer | Technologies |

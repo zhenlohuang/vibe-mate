@@ -22,7 +22,7 @@ const menuItems: SidebarItem[] = [
   { id: "agents", label: "Coding Agents", icon: Bot, href: "/agents" },
   {
     id: "providers",
-    label: "Providers",
+    label: "Model Providers",
     icon: Server,
     href: "/providers",
   },
