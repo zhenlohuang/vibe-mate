@@ -15,6 +15,8 @@ export const AGENT_TYPES = [
   { value: "Antigravity", label: "Antigravity", logo: "custom" },
 ] as const;
 
+export const PROXY_COMPATIBLE_AGENT_TYPES: AgentType[] = ["ClaudeCode", "Codex"];
+
 /** Map from agent detection type (AgentType) to auth/quota type (AgentProviderType) */
 const AGENT_TYPE_TO_PROVIDER: Record<AgentType, AgentProviderType> = {
   ClaudeCode: "ClaudeCode",
@@ -25,4 +27,8 @@ const AGENT_TYPE_TO_PROVIDER: Record<AgentType, AgentProviderType> = {
 
 export function agentTypeToProviderType(agentType: AgentType): AgentProviderType {
   return AGENT_TYPE_TO_PROVIDER[agentType];
+}
+
+export function isProxyCompatibleAgentType(agentType: AgentType): boolean {
+  return PROXY_COMPATIBLE_AGENT_TYPES.includes(agentType);
 }

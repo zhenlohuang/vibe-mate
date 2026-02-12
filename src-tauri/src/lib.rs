@@ -7,7 +7,8 @@ mod storage;
 use std::sync::Arc;
 use storage::{merge_coding_agents, ConfigStore};
 use services::{
-    AgentAuthService, AgentService, ConfigService, ProviderService, ProxyServer, RouterService,
+    AgentAuthService, AgentProxyService, AgentService, ConfigService, ProviderService, ProxyServer,
+    RouterService,
 };
 use tauri::Manager;
 
@@ -45,6 +46,7 @@ pub fn run() {
             let agent_service = Arc::new(AgentService::new());
             let config_service = Arc::new(ConfigService::new(store.clone()));
             let agent_auth_service = Arc::new(AgentAuthService::new(store.clone()));
+            let agent_proxy_service = Arc::new(AgentProxyService::new(store.clone()));
             
             // Create the proxy server with access to the config store
             let proxy_server = Arc::new(ProxyServer::new(store.clone()));
@@ -78,6 +80,7 @@ pub fn run() {
             app.manage(agent_service);
             app.manage(config_service);
             app.manage(agent_auth_service);
+            app.manage(agent_proxy_service);
             app.manage(proxy_server.clone());
 
             // Auto-start proxy server on configured port (app.port)
@@ -118,6 +121,8 @@ pub fn run() {
             commands::check_status,
             commands::read_agent_config,
             commands::save_agent_config,
+            commands::is_agent_proxy_enabled,
+            commands::set_agent_proxy_enabled,
             // Config commands
             commands::get_config,
             commands::update_config,

@@ -6,6 +6,7 @@ import type { AgentAccountInfo, AgentQuota, AgentQuotaEntry, AgentProviderType }
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { ProviderLogo } from "@/components/providers/provider-logo";
 import { useAgentAuthStore } from "@/stores/agent-auth-store";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +23,8 @@ interface AgentCardProps {
   configHref?: string;
   /** When false, the config icon is hidden (e.g. for not-installed agents). */
   showConfigIcon?: boolean;
+  proxyEnabled?: boolean;
+  onProxyToggle?: (enabled: boolean) => void;
 }
 
 function getStatusConfig(authenticated: boolean) {
@@ -39,6 +42,8 @@ export function AgentCard({
   isRefreshing = false,
   configHref,
   showConfigIcon = false,
+  proxyEnabled,
+  onProxyToggle,
 }: AgentCardProps) {
   const isLoggedIn = account.isAuthenticated;
   const statusConfig = getStatusConfig(isLoggedIn);
@@ -313,6 +318,15 @@ export function AgentCard({
               )}
             </>
           )}
+          {onProxyToggle != null ? (
+            <div className="mt-auto pt-2 flex items-center">
+              <Switch
+                checked={proxyEnabled ?? false}
+                onCheckedChange={onProxyToggle}
+                aria-label={`Toggle VibeMate proxy for ${label}`}
+              />
+            </div>
+          ) : null}
         </CardContent>
         {showConfigIcon && configHref ? (
           <div className="absolute bottom-1.5 right-2">

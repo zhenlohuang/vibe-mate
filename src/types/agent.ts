@@ -16,4 +16,6 @@ export interface CodingAgent {
   authPath?: string | null;
   /** Whether to show this agent on the Dashboard. Default true when new or missing. */
   featured?: boolean;
+  /** Whether VibeMate proxy auto-config is enabled for this agent. */
+  proxyEnabled?: boolean;
 }

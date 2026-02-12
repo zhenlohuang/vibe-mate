@@ -6,6 +6,7 @@ import { AgentCard } from "@/components/agents";
 import { invoke } from "@tauri-apps/api/core";
 import { useAgentAuth } from "@/hooks/use-agent-auth";
 import { useAgents } from "@/hooks/use-agents";
+import { useAgentProxy } from "@/hooks/use-agent-proxy";
 import { useToast } from "@/hooks/use-toast";
 import { useAppStore } from "@/stores/app-store";
 import { agentTypeToProviderType } from "@/lib/constants";
@@ -42,6 +43,7 @@ export function DashboardPage() {
   const [pendingFeatured, setPendingFeatured] = useState<string[]>([]);
 
   const isLoading = isAuthLoading || isAgentsLoading;
+  const { getProxyToggleProps } = useAgentProxy(agents, isLoading);
   const baseUrl = `http://localhost:${proxyStatus.port}`;
   const agentsToShow = useMemo(
     () => agents.filter((a) => a.featured !== false),
@@ -280,6 +282,7 @@ export function DashboardPage() {
                         isRefreshing={refreshingAgentTypes.has(providerType)}
                         configHref={`/agents/${agentType}/config`}
                         showConfigIcon
+                        {...getProxyToggleProps(agentType)}
                       />
                     </motion.div>
                   );

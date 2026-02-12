@@ -82,7 +82,7 @@ impl ConfigStore {
 }
 
 /// Merge discovered agents with stored config. Keeps only agents in `discovered` (cleans up removed types).
-/// Preserves `featured` from existing config; new agents default to featured.
+/// Preserves user-managed fields (`featured`, `proxy_enabled`) from existing config.
 pub fn merge_coding_agents(
     existing: &[CodingAgent],
     discovered: Vec<CodingAgent>,
@@ -90,11 +90,10 @@ pub fn merge_coding_agents(
     discovered
         .into_iter()
         .map(|mut d| {
-            d.featured = existing
-                .iter()
-                .find(|e| e.agent_type == d.agent_type)
-                .map(|e| e.featured)
-                .unwrap_or(true);
+            if let Some(existing_entry) = existing.iter().find(|e| e.agent_type == d.agent_type) {
+                d.featured = existing_entry.featured;
+                d.proxy_enabled = existing_entry.proxy_enabled;
+            }
             d
         })
         .collect()

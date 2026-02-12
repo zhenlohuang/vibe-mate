@@ -38,6 +38,8 @@ pub struct CodingAgent {
     pub auth_path: Option<String>,
     /// Whether to show this agent on the Dashboard. Default true when new.
     pub featured: bool,
+    /// Whether VibeMate proxy auto-config is enabled for this agent.
+    pub proxy_enabled: bool,
 }
 
 impl Default for CodingAgent {
@@ -51,6 +53,7 @@ impl Default for CodingAgent {
             config_path: None,
             auth_path: None,
             featured: true,
+            proxy_enabled: false,
         }
     }
 }
@@ -67,6 +70,7 @@ impl CodingAgent {
             config_path: Some(metadata.default_config_file.to_string()),
             auth_path: Some(metadata.default_auth_file.to_string()),
             featured: true,
+            proxy_enabled: false,
         }
     }
 }
